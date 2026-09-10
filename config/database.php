@@ -97,6 +97,23 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+
+            /*
+             * O endpoint "-pooler" do Neon é um PgBouncer em modo transação:
+             * ele reaproveita conexões do servidor entre clientes, então o
+             * PREPARE e o EXECUTE de um prepared statement real podem cair em
+             * conexões diferentes. Quando isso acontece, o EXECUTE falha e o
+             * Postgres aborta a transação inteira — o sintoma é o erro 25P02
+             * "current transaction is aborted" em qualquer query seguinte.
+             *
+             * Prepares emulados resolvem: o PDO interpola os bindings antes de
+             * enviar, escapando pelo driver, e nada fica pendurado na conexão
+             * do servidor. Ligue com DB_EMULATE_PREPARES=true sempre que a
+             * conexão for para um pooler.
+             */
+            'options' => filter_var(env('DB_EMULATE_PREPARES', false), FILTER_VALIDATE_BOOL)
+                ? [PDO::ATTR_EMULATE_PREPARES => true]
+                : [],
         ],
 
         'sqlsrv' => [

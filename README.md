@@ -77,18 +77,37 @@ O repositório já vem configurado. Os arquivos que fazem isso funcionar:
 Crie um projeto no [Neon](https://neon.tech) e copie a connection string. Dela
 saem `DB_HOST`, `DB_DATABASE`, `DB_USERNAME` e `DB_PASSWORD`.
 
+O Neon dá **dois endpoints** e a diferença entre eles não é detalhe:
+
+| Endpoint | Quando usar |
+| --- | --- |
+| `ep-xxxx-pooler.<região>.aws.neon.tech` | a aplicação em produção |
+| `ep-xxxx.<região>.aws.neon.tech` (sem `-pooler`) | rodar migrations |
+
+O `-pooler` é um PgBouncer em modo transação. Ele reaproveita conexões do
+servidor entre clientes, o que é exatamente o que se quer numa lambda, mas traz
+duas consequências:
+
+- **Migrations falham nele.** O DDL do Laravel roda numa transação longa e o
+  PgBouncer a interrompe no meio. O sintoma é
+  `SQLSTATE[25P02]: current transaction is aborted`. Use o endpoint direto.
+- **A aplicação precisa de `DB_EMULATE_PREPARES=true`.** Sem isso o `PREPARE` e
+  o `EXECUTE` de um prepared statement podem cair em conexões diferentes e
+  abortar a transação — o mesmo erro 25P02, agora em qualquer tela que grave
+  estoque. Já está ligado no `vercel.json` e tratado no `config/database.php`.
+
 ### 2. Rodar as migrations
 
 As migrations rodam da sua máquina, não no build da Vercel. Aponte o `.env`
-local para o Neon (bloco da seção anterior) e:
+local para o Neon usando o endpoint **direto** (sem `-pooler`) e:
 
 ```bash
 php artisan migrate --force
-php artisan make:filament-user        # ou --seed, para os dados de exemplo
+php artisan make:filament-user
 ```
 
-Depois devolva o `.env` local para o SQLite, se quiser continuar desenvolvendo
-sem tocar em produção.
+Depois volte o `DB_HOST` para o endpoint com `-pooler`, que é o que a aplicação
+usa no dia a dia.
 
 ### 3. Gerar a chave da aplicação
 
