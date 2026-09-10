@@ -13,6 +13,7 @@ use App\Filament\Widgets\EncomendasDaSemana;
 use App\Filament\Widgets\FaturamentoDiario;
 use App\Filament\Widgets\ResumoDoMes;
 use App\Models\User;
+use Filament\Auth\Pages\EditProfile;
 use Filament\Pages\Dashboard;
 use Livewire\Livewire;
 
@@ -68,4 +69,8 @@ it('renderiza cada widget do dashboard', function (string $widget) {
 
 it('abre a página de relatórios', function () {
     Livewire::test(Relatorios::class)->assertOk();
+});
+
+it('tem página de perfil para trocar a senha', function () {
+    Livewire::test(EditProfile::class)->assertOk();
 });

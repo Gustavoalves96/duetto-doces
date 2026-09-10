@@ -32,6 +32,23 @@ php artisan migrate:fresh
 php artisan make:filament-user
 ```
 
+## Usuários e senha
+
+Criar usuário: `php artisan make:filament-user`.
+
+Trocar a senha: pela página **Perfil**, no menu do canto superior direito do
+painel. Se ninguém conseguir entrar, pelo terminal:
+
+```bash
+php artisan usuario:senha            # pergunta qual usuário e a senha nova
+```
+
+> **Nunca insira usuário direto no banco** (console SQL do Neon, ferramenta de
+> GUI, `DB::table('users')->insert()`). Esses caminhos pulam o cast `hashed` do
+> Eloquent e gravam a senha em texto puro. O login então rejeita com
+> `This password does not use the Bcrypt algorithm`, e a senha fica legível
+> para qualquer um com acesso ao banco. Use sempre os comandos acima.
+
 ## Trocar o SQLite por PostgreSQL
 
 O SQLite é só o padrão para subir rápido. Nenhuma migration ou consulta é

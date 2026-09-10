@@ -31,6 +31,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // sem isso não existe tela de trocar a senha em lugar nenhum
+            ->profile(isSimple: false)
             ->brandName('Duetto Doces')
             ->favicon(asset('favicon.ico'))
             // marrom de brownie no primário, âmbar no destaque
