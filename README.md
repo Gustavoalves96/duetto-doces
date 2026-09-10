@@ -61,15 +61,86 @@ DB_PASSWORD=
 DB_SSLMODE=require
 ```
 
-## Sobre hospedagem
+## Deploy: Vercel + Neon
 
-O painel é Laravel + Filament: precisa de PHP rodando como processo, filesystem
-gravável (`storage/`) para cache de views e sessões, e não gosta de cold start.
-Isso descarta a Vercel, que não suporta PHP oficialmente.
+O repositório já vem configurado. Os arquivos que fazem isso funcionar:
 
-O que serve, com o Neon como banco em qualquer uma delas: **Railway**, **Render**,
-**Laravel Cloud** ou uma VPS pequena. Todas fazem deploy por git a partir deste
-repositório.
+| Arquivo | Para quê |
+| --- | --- |
+| `vercel.json` | runtime PHP 8.4, rotas dos assets e variáveis de ambiente |
+| `api/index.php` | entrypoint da lambda; joga o `storage/` gravável para `/tmp` |
+| `.vercelignore` | mantém testes e `vendor/` fora do bundle |
+| script `vercel` no `composer.json` | `config:cache` e `event:cache` no build |
+
+### 1. Criar o banco no Neon
+
+Crie um projeto no [Neon](https://neon.tech) e copie a connection string. Dela
+saem `DB_HOST`, `DB_DATABASE`, `DB_USERNAME` e `DB_PASSWORD`.
+
+### 2. Rodar as migrations
+
+As migrations rodam da sua máquina, não no build da Vercel. Aponte o `.env`
+local para o Neon (bloco da seção anterior) e:
+
+```bash
+php artisan migrate --force
+php artisan make:filament-user        # ou --seed, para os dados de exemplo
+```
+
+Depois devolva o `.env` local para o SQLite, se quiser continuar desenvolvendo
+sem tocar em produção.
+
+### 3. Gerar a chave da aplicação
+
+```bash
+php artisan key:generate --show
+```
+
+Copie a saída inteira, incluindo o prefixo `base64:`.
+
+### 4. Importar o projeto na Vercel
+
+Em **Add New → Project**, escolha este repositório. Não é preciso mexer em
+build command nem output directory — o `vercel.json` cuida disso.
+
+Em **Settings → Environment Variables**, adicione (as demais já estão no
+`vercel.json`):
+
+| Variável | Valor |
+| --- | --- |
+| `APP_KEY` | a saída do passo 3 |
+| `APP_URL` | `https://seu-projeto.vercel.app` |
+| `DB_HOST` | `ep-xxxx.sa-east-1.aws.neon.tech` |
+| `DB_DATABASE` | `neondb` |
+| `DB_USERNAME` | `neondb_owner` |
+| `DB_PASSWORD` | a senha do Neon |
+
+Faça o deploy e acesse `/admin`. A raiz redireciona para lá.
+
+> Trocar variável de ambiente na Vercel exige **redeploy** para valer: o
+> `config:cache` roda no build e congela os valores.
+
+### O que esperar (e o que não esperar)
+
+A Vercel é serverless e não foi feita para PHP. Funciona, mas com limites reais:
+
+- **Cold start.** A primeira requisição depois de um tempo parado leva alguns
+  segundos, porque a lambda sobe e o Blade recompila as views em `/tmp`.
+  Enquanto o container está quente, a navegação é normal.
+- **Nada é gravado em disco.** Sessão e cache moram no Postgres justamente por
+  isso — `/tmp` não é compartilhado entre invocações, e sessão em arquivo
+  derrubaria o login a cada clique. Se um dia entrar upload de foto de produto,
+  vai precisar de um bucket (S3, R2), não do disco local.
+- **Sem worker nem agendador.** Hoje não faz falta: nenhuma fila, nenhum job
+  agendado. Se precisar, dá para usar Vercel Cron chamando uma rota.
+- **Assets do Filament versionados.** Estão no git de propósito (veja o
+  comentário no `.gitignore`). Depois de atualizar o Filament rode
+  `php artisan filament:assets` e commite o resultado, senão o painel sobe
+  sem estilo.
+
+Se o cold start incomodar no uso diário, o mesmo repositório sobe sem alteração
+nenhuma em Render, Laravel Cloud ou numa VPS — aí com processo PHP de verdade,
+sem esses limites.
 
 ## Como o custo funciona
 

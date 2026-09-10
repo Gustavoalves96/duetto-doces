@@ -1,0 +1,16 @@
+# instalado pela Vercel no build
+/vendor
+/node_modules
+
+# não vai para produção
+/tests
+/.git
+/.github
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/database/*.sqlite
+/database/*.sqlite-journal
+phpunit.xml
+pint.json

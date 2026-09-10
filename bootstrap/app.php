@@ -12,7 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // A Vercel termina o TLS num proxy e repassa a requisição em http.
+        // Sem confiar no proxy, o Laravel monta as URLs de asset como http://
+        // e o painel quebra inteiro com mixed content no navegador.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -15,12 +15,16 @@
 /auth.json
 /node_modules
 /public/build
-/public/css/filament
 /public/fonts-manifest.dev.json
-/public/fonts/filament
 /public/hot
-/public/js/filament
 /public/storage
+
+# Os assets do Filament (public/css/filament, public/js/filament,
+# public/fonts/filament) ficam versionados de propósito. O instalador do
+# Filament os ignora assumindo que o deploy roda `filament:assets`, mas na
+# Vercel arquivos criados durante o build não são servidos estaticamente —
+# só ficam visíveis para a lambda. Versionados, entram no output estático.
+# Depois de atualizar o Filament, rode `php artisan filament:assets` e commite.
 /storage/*.key
 /storage/pail
 /vendor
