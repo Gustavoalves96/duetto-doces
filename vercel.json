@@ -5,7 +5,7 @@
     "buildCommand": "rm -rf .vercel-static && mkdir -p .vercel-static && cp -r public/. .vercel-static/ && rm -f .vercel-static/index.php .vercel-static/.htaccess",
     "outputDirectory": ".vercel-static",
     "functions": {
-        "api/index.php": {
+        "api/*.php": {
             "runtime": "vercel-php@0.8.0",
             "maxDuration": 60
         }
@@ -18,6 +18,10 @@
         }
     ],
     "rewrites": [
+        {
+            "source": "/api/env",
+            "destination": "/api/env.php"
+        },
         {
             "source": "/(.*)",
             "destination": "/api/index.php"
