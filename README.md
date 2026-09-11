@@ -167,10 +167,19 @@ Em **Settings → Environment Variables**, adicione (as demais já estão no
 | --- | --- |
 | `APP_KEY` | a saída do passo 3 |
 | `APP_URL` | `https://seu-projeto.vercel.app` |
-| `DB_HOST` | `ep-xxxx.sa-east-1.aws.neon.tech` |
-| `DB_DATABASE` | `neondb` |
-| `DB_USERNAME` | `neondb_owner` |
-| `DB_PASSWORD` | a senha do Neon |
+
+Para o banco, há dois caminhos e **basta um**:
+
+- **Integração Neon ↔ Vercel** (o mais simples). Ela cria sozinha uma variável
+  com a connection string — `DATABASE_URL`, `POSTGRES_URL` ou equivalente. O
+  `config/database.php` já procura por todos esses nomes e extrai host, porta,
+  banco, usuário, senha e `sslmode` da própria URL. Nada a fazer à mão.
+- **Manualmente**, se preferir: `DB_HOST` (com `-pooler`), `DB_DATABASE`,
+  `DB_USERNAME` e `DB_PASSWORD`.
+
+> Cuidado: a integração **não** cria `DB_HOST`, `DB_DATABASE` e companhia. Quem
+> procura por esses nomes no painel da Vercel não acha e conclui que faltou
+> configurar algo — quando na verdade a credencial está lá, com outro nome.
 
 Faça o deploy e acesse `/admin`. A raiz redireciona para lá.
 

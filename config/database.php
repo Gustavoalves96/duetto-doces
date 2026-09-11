@@ -86,7 +86,23 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => env('DB_URL'),
+
+            /*
+             * A integração do Neon com a Vercel não cria DB_HOST, DB_DATABASE e
+             * companhia: ela cria uma connection string com nome próprio. Aqui
+             * aceitamos os nomes dela além do DB_URL do Laravel, na ordem do
+             * mais específico para o mais genérico, preferindo sempre o
+             * endpoint com pool (o "-pooler"), que é o certo para serverless.
+             *
+             * Quando a URL existe, o Laravel extrai host, porta, banco,
+             * usuário, senha e até o sslmode da query string. As chaves abaixo
+             * seguem valendo como fallback para quem preenche na mão.
+             */
+            'url' => env('DB_URL')
+                ?: env('DATABASE_URL')
+                ?: env('POSTGRES_URL')
+                ?: env('DATABASE_URL_UNPOOLED')
+                ?: env('POSTGRES_URL_NON_POOLING'),
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '5432'),
             'database' => env('DB_DATABASE', 'laravel'),
