@@ -110,8 +110,14 @@ class CompraForm
                                     ->native(false)
                                     ->live()
                                     ->required(fn (Get $get) => filled($get('insumo_id')))
-                                    // coluna virtual: existe só para converter na entrada
-                                    ->dehydrated(false)
+                                    /*
+                                     * Precisa ser desidratado, senão não chega
+                                     * em converter() e a conversão kg -> g nunca
+                                     * acontece: tudo entra como grama e o custo
+                                     * médio sai mil vezes errado.
+                                     * Não vai para o banco porque converter()
+                                     * remove a chave antes de salvar.
+                                     */
                                     ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 2])
                                     ->validationMessages(['required' => 'Escolha a unidade.']),
 
