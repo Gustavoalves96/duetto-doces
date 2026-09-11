@@ -34,7 +34,10 @@ class AdminPanelProvider extends PanelProvider
             // sem isso não existe tela de trocar a senha em lugar nenhum
             ->profile(isSimple: false)
             ->brandName('Duetto Doces')
-            ->favicon(asset('favicon.ico'))
+            // URL relativa de propósito: o panel() roda no register(), antes do
+            // boot() onde o forceScheme('https') é aplicado, então um asset()
+            // aqui monta link http e o navegador bloqueia por mixed content
+            ->favicon('/favicon.ico')
             // marrom de brownie no primário, âmbar no destaque
             ->colors([
                 'primary' => Color::Amber,
