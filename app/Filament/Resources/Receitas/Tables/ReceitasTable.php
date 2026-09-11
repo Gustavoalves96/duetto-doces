@@ -37,7 +37,7 @@ class ReceitasTable
                 TextColumn::make('rendimento')
                     ->label('Rende')
                     ->alignCenter()
-                    ->formatStateUsing(fn ($state) => Decimal::paraBr($state, 3).' un'),
+                    ->formatStateUsing(fn ($state) => Decimal::paraBrEnxuto($state).' un'),
 
                 TextColumn::make('itens_count')
                     ->label('Ingredientes')
@@ -49,7 +49,7 @@ class ReceitasTable
                     ->alignEnd()
                     ->state(fn (Receita $record) => $record->custoEstimadoFornada())
                     ->money('BRL', locale: 'pt_BR')
-                    ->description(fn (Receita $record) => 'R$ '.Decimal::paraBr($record->custoEstimadoUnitario(), 4).' / un'),
+                    ->description(fn (Receita $record) => Decimal::paraRealLegivel($record->custoEstimadoUnitario()).' / un'),
 
                 TextColumn::make('margem')
                     ->label('Margem estimada')
@@ -143,7 +143,7 @@ class ReceitasTable
                         Notification::make()
                             ->title('Produção registrada')
                             ->body(
-                                Decimal::paraBr($producao->quantidade_produzida, 3).' unidades a '
+                                Decimal::paraBrEnxuto($producao->quantidade_produzida).' unidades a '
                                 .Decimal::paraReal($producao->custoUnitarioLote()).' cada.'
                             )
                             ->success()

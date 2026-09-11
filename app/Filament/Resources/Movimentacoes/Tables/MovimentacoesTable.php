@@ -41,7 +41,7 @@ class MovimentacoesTable
                 TextColumn::make('quantidade')
                     ->label('Quantidade')
                     ->alignEnd()
-                    ->formatStateUsing(fn ($state, Movimentacao $record) => Decimal::paraBr($state, 3)
+                    ->formatStateUsing(fn ($state, Movimentacao $record) => Decimal::paraBrEnxuto($state)
                         .' '.($record->insumo?->unidade_base->sufixo() ?? 'un'))
                     ->color(fn (Movimentacao $record) => match ($record->tipo) {
                         TipoMovimentacao::Entrada => 'success',

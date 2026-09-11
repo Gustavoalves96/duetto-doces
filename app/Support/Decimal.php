@@ -217,4 +217,39 @@ final class Decimal
     {
         return 'R$ '.self::paraBr($valor, self::DINHEIRO);
     }
+
+    /**
+     * Dinheiro para uma pessoa ler, não para conferir contabilidade.
+     *
+     * Duas casas, porque ninguém precifica brownie em R$ 0,9333. A exceção é
+     * o valor que arredondaria para R$ 0,00 — aí mostra 4 casas, senão o custo
+     * por grama de um insumo barato viraria zero na tela.
+     */
+    public static function paraRealLegivel(mixed $valor): string
+    {
+        $valor = self::de($valor);
+
+        if (! self::ehZero($valor) && self::ehZero(self::dinheiro($valor))) {
+            return 'R$ '.self::paraBr($valor, self::CUSTO);
+        }
+
+        return 'R$ '.self::paraBr($valor, self::DINHEIRO);
+    }
+
+    /**
+     * Quantidade sem zeros à toa: 15 em vez de "15,000".
+     *
+     * Três casas decimais são necessárias no banco (meia fornada, 2,5 g de
+     * fermento), mas exibir "15,000 un" faz um brasileiro ler quinze mil.
+     */
+    public static function paraBrEnxuto(mixed $valor, int $maximo = self::QUANTIDADE): string
+    {
+        $texto = self::paraBr($valor, $maximo);
+
+        if (! str_contains($texto, ',')) {
+            return $texto;
+        }
+
+        return rtrim(rtrim($texto, '0'), ',');
+    }
 }

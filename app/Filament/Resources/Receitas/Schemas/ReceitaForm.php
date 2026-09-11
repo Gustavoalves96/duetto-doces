@@ -129,7 +129,7 @@ class ReceitaForm
 
                         Placeholder::make('custo_unidade')
                             ->label('Custo por unidade')
-                            ->content(fn (?Receita $record) => 'R$ '.Decimal::paraBr($record?->custoEstimadoUnitario() ?? '0', 4)),
+                            ->content(fn (?Receita $record) => Decimal::paraRealLegivel($record?->custoEstimadoUnitario() ?? '0')),
 
                         Placeholder::make('margem_estimada')
                             ->label('Margem no preço atual')

@@ -42,7 +42,7 @@ class ProdutosTable
                     ->label('Custo')
                     ->sortable()
                     ->alignEnd()
-                    ->formatStateUsing(fn ($state) => 'R$ '.Decimal::paraBr($state, 4))
+                    ->formatStateUsing(fn ($state) => Decimal::paraRealLegivel($state))
                     ->description(fn (Produto $record) => Decimal::ehZero($record->custo_unitario)
                         ? 'sem produção ainda'
                         : null)
@@ -67,7 +67,7 @@ class ProdutosTable
                     ->sortable()
                     ->badge()
                     ->color(fn (Produto $record) => Decimal::negativo($record->estoque_atual) ? 'danger' : 'success')
-                    ->formatStateUsing(fn ($state) => Decimal::paraBr($state, 3).' un'),
+                    ->formatStateUsing(fn ($state) => Decimal::paraBrEnxuto($state).' un'),
             ])
             ->filters([
                 TernaryFilter::make('ativo')
@@ -90,7 +90,7 @@ class ProdutosTable
                     ->modalDescription('Fornada queimada, produto que passou do ponto, caiu no chão.')
                     ->modalSubmitActionLabel('Registrar perda')
                     ->schema(fn (Produto $record) => [
-                        Text::make('Estoque atual: '.Decimal::paraBr($record->estoque_atual, 3).' un'),
+                        Text::make('Estoque atual: '.Decimal::paraBrEnxuto($record->estoque_atual).' un'),
 
                         CampoQuantidade::make('quantidade')
                             ->label('Quantidade perdida')
@@ -127,7 +127,7 @@ class ProdutosTable
                     ->modalDescription('Informe quantas unidades realmente existem.')
                     ->modalSubmitActionLabel('Ajustar')
                     ->schema(fn (Produto $record) => [
-                        Text::make('Sistema diz: '.Decimal::paraBr($record->estoque_atual, 3).' un'),
+                        Text::make('Sistema diz: '.Decimal::paraBrEnxuto($record->estoque_atual).' un'),
 
                         CampoQuantidade::make('saldo_real')
                             ->label('Quantidade real contada')
@@ -150,7 +150,7 @@ class ProdutosTable
 
                         Notification::make()
                             ->title('Estoque ajustado')
-                            ->body('Diferença de '.Decimal::paraBr($movimentacao->quantidade, 3).' un.')
+                            ->body('Diferença de '.Decimal::paraBrEnxuto($movimentacao->quantidade).' un.')
                             ->success()
                             ->send();
                     }),

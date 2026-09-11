@@ -43,12 +43,12 @@ class InsumosTable
                         $record->estaAbaixoDoMinimo() => 'warning',
                         default => 'success',
                     })
-                    ->formatStateUsing(fn ($state, Insumo $record) => Decimal::paraBr($state, 3).' '.$record->unidade_base->sufixo()),
+                    ->formatStateUsing(fn ($state, Insumo $record) => Decimal::paraBrEnxuto($state).' '.$record->unidade_base->sufixo()),
 
                 TextColumn::make('estoque_minimo')
                     ->label('Mínimo')
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->formatStateUsing(fn ($state, Insumo $record) => Decimal::paraBr($state, 3).' '.$record->unidade_base->sufixo()),
+                    ->formatStateUsing(fn ($state, Insumo $record) => Decimal::paraBrEnxuto($state).' '.$record->unidade_base->sufixo()),
 
                 TextColumn::make('custo_medio')
                     ->label('Custo médio')
@@ -97,7 +97,7 @@ class InsumosTable
                     ->modalDescription('Insumo vencido, embalagem rasgada, sobra que estragou.')
                     ->modalSubmitActionLabel('Registrar perda')
                     ->schema(fn (Insumo $record) => [
-                        Text::make('Estoque atual: '.Decimal::paraBr($record->estoque_atual, 3).' '.$record->unidade_base->sufixo()),
+                        Text::make('Estoque atual: '.Decimal::paraBrEnxuto($record->estoque_atual).' '.$record->unidade_base->sufixo()),
 
                         CampoQuantidade::make('quantidade')
                             ->label('Quantidade perdida')
@@ -134,7 +134,7 @@ class InsumosTable
                     ->modalDescription('Informe o que realmente tem na despensa. O sistema grava a diferença.')
                     ->modalSubmitActionLabel('Ajustar')
                     ->schema(fn (Insumo $record) => [
-                        Text::make('Sistema diz: '.Decimal::paraBr($record->estoque_atual, 3).' '.$record->unidade_base->sufixo()),
+                        Text::make('Sistema diz: '.Decimal::paraBrEnxuto($record->estoque_atual).' '.$record->unidade_base->sufixo()),
 
                         CampoQuantidade::make('saldo_real')
                             ->label('Quantidade real contada')
@@ -158,7 +158,7 @@ class InsumosTable
 
                         Notification::make()
                             ->title('Estoque ajustado')
-                            ->body('Diferença de '.Decimal::paraBr($movimentacao->quantidade, 3).' '.$record->unidade_base->sufixo().'.')
+                            ->body('Diferença de '.Decimal::paraBrEnxuto($movimentacao->quantidade).' '.$record->unidade_base->sufixo().'.')
                             ->success()
                             ->send();
                     }),
