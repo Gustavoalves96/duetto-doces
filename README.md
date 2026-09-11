@@ -84,10 +84,28 @@ O repositório já vem configurado. Os arquivos que fazem isso funcionar:
 
 | Arquivo | Para quê |
 | --- | --- |
-| `vercel.json` | runtime PHP 8.4, rotas dos assets e variáveis de ambiente |
+| `vercel.json` | runtime PHP 8.4, roteamento e variáveis de ambiente |
 | `api/index.php` | entrypoint da lambda; joga o `storage/` gravável para `/tmp` |
 | `.vercelignore` | mantém testes e `vendor/` fora do bundle |
-| script `vercel` no `composer.json` | `config:cache` e `event:cache` no build |
+| script `vercel` no `composer.json` | `event:cache` no build |
+
+Três detalhes do `vercel.json` que não são opcionais:
+
+- **`"framework": null`.** Sem isso a Vercel vê o `vite build` no `package.json`,
+  assume o preset do Vite e falha procurando uma pasta `dist` que nunca vai
+  existir. O painel não usa Vite — o Filament traz os assets já compilados.
+- **`"outputDirectory": "public"`.** Faz a Vercel servir o `public/` na raiz da
+  URL, que é exatamente o que o Laravel espera: `/css/filament/...` cai em
+  `public/css/filament/...`. O `rewrites` só entra quando não existe arquivo
+  estático, porque o filesystem tem precedência.
+- **`installCommand` e `buildCommand` neutralizados.** Não há frontend para
+  instalar nem construir. O `composer install` é feito pelo runtime PHP, num
+  passo separado.
+
+O build **não** roda `config:cache` de propósito: ele congelaria os valores das
+variáveis no momento do build, e uma variável faltando viraria um erro de
+runtime difícil de rastrear. Sem cache, o Laravel lê direto do ambiente do
+processo, que é o que a Vercel fornece.
 
 ### 1. Criar o banco no Neon
 

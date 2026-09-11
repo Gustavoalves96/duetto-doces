@@ -75,7 +75,6 @@
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ],
         "vercel": [
-            "@php artisan config:cache",
             "@php artisan event:cache"
         ]
     },
