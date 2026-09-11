@@ -39,7 +39,7 @@ class CampoQuantidade extends TextInput
                     return null;
                 }
 
-                return Decimal::quantidade(Decimal::de($state));
+                return Decimal::quantidade(Decimal::deBr($state));
             })
             ->rules([
                 fn (CampoQuantidade $component): Closure => function (string $attribute, mixed $value, Closure $fail) use ($component) {
@@ -55,7 +55,7 @@ class CampoQuantidade extends TextInput
 
                     $minimo = $component->getValorMinimo();
 
-                    if ($minimo !== null && Decimal::menor(Decimal::de($value), $minimo)) {
+                    if ($minimo !== null && Decimal::menor(Decimal::deBr($value), $minimo)) {
                         $fail('A quantidade precisa ser de no mínimo '.Decimal::paraBr($minimo, 3).'.');
                     }
                 },

@@ -178,11 +178,12 @@ class ReceitasTable
     /** Prévia do que a fornada vai consumir e custar, com os preços de hoje. */
     private static function previsao(Receita $receita, string $multiplicador): string
     {
-        if (! Decimal::positivo(Decimal::de($multiplicador))) {
+        // chega mascarado, vindo direto do campo
+        $multiplicador = Decimal::deBr($multiplicador);
+
+        if (! Decimal::positivo($multiplicador)) {
             return '<span class="text-sm text-gray-500">Informe o multiplicador para ver a prévia.</span>';
         }
-
-        $multiplicador = Decimal::de($multiplicador);
         $linhas = [];
         $custo = '0';
 

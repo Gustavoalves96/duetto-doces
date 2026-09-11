@@ -54,6 +54,48 @@ final class Decimal
         return is_numeric($valor) ? $valor : '0';
     }
 
+    /**
+     * Converte um valor DIGITADO no formato brasileiro para decimal de máquina.
+     *
+     * Use esta, e não a de(), sempre que o valor vier de um campo com máscara.
+     * Aqui o ponto é SEMPRE separador de milhar e a vírgula é SEMPRE decimal,
+     * sem adivinhação.
+     *
+     * A de() não serve para isso porque precisa aceitar valores vindos do banco
+     * ("1234.56", onde o ponto é decimal). Diante de "2.000" ela devolve 2 —
+     * e o usuário que digitou 2000 gramas fica com 2 gramas no estoque. Pior:
+     * "1.000.000" não é numérico e viraria zero em silêncio.
+     */
+    public static function deBr(mixed $valor): string
+    {
+        if ($valor === null || $valor === '') {
+            return '0';
+        }
+
+        if (! is_string($valor)) {
+            return self::de($valor);
+        }
+
+        $negativo = str_starts_with(trim($valor), '-');
+
+        // sobra só dígito e vírgula; o ponto de milhar some junto com o resto
+        $limpo = preg_replace('/[^0-9,]/', '', $valor);
+
+        // a máscara nunca produz duas vírgulas, mas colar texto produz
+        if (substr_count($limpo, ',') > 1) {
+            $partes = explode(',', $limpo);
+            $limpo = array_shift($partes).','.implode('', $partes);
+        }
+
+        $limpo = str_replace(',', '.', $limpo);
+
+        if ($limpo === '' || $limpo === '.') {
+            return '0';
+        }
+
+        return ($negativo ? '-' : '').$limpo;
+    }
+
     public static function soma(mixed $a, mixed $b, int $escala = self::INTERNA): string
     {
         return bcadd(self::de($a), self::de($b), $escala);

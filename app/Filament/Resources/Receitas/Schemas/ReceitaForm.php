@@ -112,7 +112,7 @@ class ReceitaForm
                                         }
 
                                         return 'R$ '.Decimal::paraBr(
-                                            Decimal::mul(Decimal::de($get('quantidade')), $insumo->custo_medio)
+                                            Decimal::mul(Decimal::deBr($get('quantidade')), $insumo->custo_medio)
                                         );
                                     }),
                             ]),

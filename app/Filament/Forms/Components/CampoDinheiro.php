@@ -51,7 +51,7 @@ class CampoDinheiro extends TextInput
                     return null;
                 }
 
-                return Decimal::arredonda(Decimal::de($state), $component->getCasas());
+                return Decimal::arredonda(Decimal::deBr($state), $component->getCasas());
             })
             ->rules([
                 fn (CampoDinheiro $component): Closure => function (string $attribute, mixed $value, Closure $fail) use ($component) {
@@ -65,7 +65,7 @@ class CampoDinheiro extends TextInput
                         return;
                     }
 
-                    $numero = Decimal::de($value);
+                    $numero = Decimal::deBr($value);
 
                     $minimo = $component->getValorMinimo();
                     if ($minimo !== null && Decimal::menor($numero, $minimo)) {

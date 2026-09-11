@@ -136,8 +136,8 @@ class CompraForm
                                     ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 2])
                                     ->content(function (Get $get) {
                                         $insumo = self::insumoDe($get);
-                                        $quantidade = Decimal::de($get('quantidade'));
-                                        $valor = Decimal::de($get('valor_total'));
+                                        $quantidade = Decimal::deBr($get('quantidade'));
+                                        $valor = Decimal::deBr($get('valor_total'));
 
                                         if (! $insumo || ! Decimal::positivo($quantidade)) {
                                             return '—';

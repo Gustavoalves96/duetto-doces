@@ -146,7 +146,7 @@ class PedidoForm
                                     ->label('Total')
                                     ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 3])
                                     ->content(fn (Get $get) => Decimal::paraReal(
-                                        Decimal::mul(Decimal::de($get('quantidade')), Decimal::de($get('preco_unitario')))
+                                        Decimal::mul(Decimal::deBr($get('quantidade')), Decimal::deBr($get('preco_unitario')))
                                     )),
                             ]),
                     ]),
@@ -170,7 +170,7 @@ class PedidoForm
                                     return;
                                 }
 
-                                $bruto = Decimal::sub(self::subtotalDoForm($get), Decimal::de($get('desconto')));
+                                $bruto = Decimal::sub(self::subtotalDoForm($get), Decimal::deBr($get('desconto')));
 
                                 $set('taxa_operadora', Decimal::paraBr(
                                     Decimal::percentual($bruto, $forma->taxaSugerida())
@@ -212,22 +212,22 @@ class PedidoForm
                         Placeholder::make('resumo_total')
                             ->label('Total do cliente')
                             ->content(fn (Get $get) => Decimal::paraReal(
-                                Decimal::sub(self::subtotalDoForm($get), Decimal::de($get('desconto')))
+                                Decimal::sub(self::subtotalDoForm($get), Decimal::deBr($get('desconto')))
                             )),
 
                         Placeholder::make('resumo_liquido')
                             ->label('Entra no caixa')
                             ->content(fn (Get $get) => Decimal::paraReal(Decimal::sub(
-                                Decimal::sub(self::subtotalDoForm($get), Decimal::de($get('desconto'))),
-                                Decimal::de($get('taxa_operadora'))
+                                Decimal::sub(self::subtotalDoForm($get), Decimal::deBr($get('desconto'))),
+                                Decimal::deBr($get('taxa_operadora'))
                             ))),
 
                         Placeholder::make('resumo_saldo')
                             ->label('Falta receber')
                             ->visible(fn (Get $get) => self::ehEncomenda($get))
                             ->content(fn (Get $get) => Decimal::paraReal(Decimal::sub(
-                                Decimal::sub(self::subtotalDoForm($get), Decimal::de($get('desconto'))),
-                                Decimal::de($get('sinal_pago'))
+                                Decimal::sub(self::subtotalDoForm($get), Decimal::deBr($get('desconto'))),
+                                Decimal::deBr($get('sinal_pago'))
                             ))),
 
                         Text::make(fn (?Pedido $record) => $record && $record->jaBaixouEstoque()
@@ -264,8 +264,8 @@ class PedidoForm
 
         foreach ((array) $get('itens') as $item) {
             $total = Decimal::soma($total, Decimal::mul(
-                Decimal::de($item['quantidade'] ?? 0),
-                Decimal::de($item['preco_unitario'] ?? 0),
+                Decimal::deBr($item['quantidade'] ?? 0),
+                Decimal::deBr($item['preco_unitario'] ?? 0),
             ));
         }
 
