@@ -31,6 +31,15 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            /*
+             * Navegação client-side, via wire:navigate.
+             *
+             * Sem isso cada clique no menu recarrega a página inteira e o
+             * Laravel sobe do zero — numa lambda isso custa caro. Com o SPA
+             * ligado só o conteúdo é trocado, e o prefetching adianta o
+             * carregamento assim que o mouse passa pelo link.
+             */
+            ->spa(hasPrefetching: true)
             // sem isso não existe tela de trocar a senha em lugar nenhum
             ->profile(isSimple: false)
             ->brandName('Duetto Doces')
