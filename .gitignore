@@ -36,3 +36,6 @@ Thumbs.db
 # banco local de desenvolvimento
 /database/*.sqlite
 /database/*.sqlite-journal
+
+# output estatico montado pelo build da Vercel (so os assets, sem o index.php)
+/.vercel-static

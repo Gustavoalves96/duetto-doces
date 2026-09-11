@@ -94,13 +94,16 @@ Três detalhes do `vercel.json` que não são opcionais:
 - **`"framework": null`.** Sem isso a Vercel vê o `vite build` no `package.json`,
   assume o preset do Vite e falha procurando uma pasta `dist` que nunca vai
   existir. O painel não usa Vite — o Filament traz os assets já compilados.
-- **`"outputDirectory": "public"`.** Faz a Vercel servir o `public/` na raiz da
-  URL, que é exatamente o que o Laravel espera: `/css/filament/...` cai em
-  `public/css/filament/...`. O `rewrites` só entra quando não existe arquivo
-  estático, porque o filesystem tem precedência.
-- **`installCommand` e `buildCommand` neutralizados.** Não há frontend para
-  instalar nem construir. O `composer install` é feito pelo runtime PHP, num
-  passo separado.
+- **O `buildCommand` monta um `.vercel-static/` com os assets e nada mais.**
+  Apontar o `outputDirectory` direto para `public/` parece óbvio e não funciona:
+  o filesystem tem precedência sobre as rewrites, então a Vercel serve
+  `public/index.php` como **arquivo estático** e o navegador baixa o front
+  controller do Laravel em vez de abrir o painel. O build copia o `public/`
+  para `.vercel-static/` e remove de lá o `index.php` e o `.htaccess`. Sobram
+  só `css/`, `js/`, `fonts/`, `favicon.ico` e `robots.txt` — servidos direto,
+  e todo o resto cai na rewrite para a lambda.
+- **`installCommand` neutralizado.** Não há frontend para instalar. O
+  `composer install` é feito pelo runtime PHP, num passo separado.
 
 O build **não** roda `config:cache` de propósito: ele congelaria os valores das
 variáveis no momento do build, e uma variável faltando viraria um erro de

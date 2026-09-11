@@ -2,9 +2,10 @@
     "$schema": "https://openapi.vercel.sh/vercel.json",
 
     "framework": null,
-    "outputDirectory": "public",
     "installCommand": "echo \"sem dependencias de frontend\"",
-    "buildCommand": "echo \"o Filament ja traz os assets compilados\"",
+
+    "buildCommand": "rm -rf .vercel-static && mkdir -p .vercel-static && cp -r public/. .vercel-static/ && rm -f .vercel-static/index.php .vercel-static/.htaccess",
+    "outputDirectory": ".vercel-static",
 
     "functions": {
         "api/index.php": {
