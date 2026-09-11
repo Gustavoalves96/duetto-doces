@@ -29,7 +29,7 @@ $limpar = static function (string $texto) use ($ambiente): string {
 // ---- 1. quais variáveis existem (só os nomes) ----
 $interessantes = [];
 foreach (array_keys($ambiente) as $nome) {
-    if (preg_match('/(DB|DATABASE|POSTGRES|PG|APP_KEY|APP_URL|APP_ENV|APP_DEBUG|SESSION|CACHE|LOG_|VIEW_)/i', (string) $nome)) {
+    if (preg_match('/^(DB_|DATABASE|POSTGRES|PG|APP_|SESSION|CACHE|LOG_|VIEW_|QUEUE|MAIL_|FILESYSTEM)/i', (string) $nome)) {
         $interessantes[] = $nome;
     }
 }

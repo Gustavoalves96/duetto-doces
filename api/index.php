@@ -31,4 +31,21 @@ $_ENV['LARAVEL_STORAGE_PATH'] = $storage;
 $_SERVER['LARAVEL_STORAGE_PATH'] = $storage;
 putenv('LARAVEL_STORAGE_PATH='.$storage);
 
+/*
+ * Modo de manutenção sempre no driver de arquivo.
+ *
+ * O PreventRequestsDuringMaintenance é middleware GLOBAL: ele roda antes do
+ * roteamento, em toda requisição. Com o driver 'cache' e o store 'database'
+ * (o padrão de config/app.php), essa verificação abre uma conexão com o banco
+ * antes de qualquer outra coisa — e se o banco estiver fora, a aplicação
+ * inteira responde 500 sem sequer chegar na rota, inclusive num 404.
+ *
+ * O driver de arquivo só olha um arquivo em storage/framework, que aqui é
+ * /tmp. Zero dependência externa no caminho crítico. Forçado aqui, e não no
+ * vercel.json, para que nenhuma variável do painel possa sobrescrever.
+ */
+$_ENV['APP_MAINTENANCE_DRIVER'] = 'file';
+$_SERVER['APP_MAINTENANCE_DRIVER'] = 'file';
+putenv('APP_MAINTENANCE_DRIVER=file');
+
 require __DIR__.'/../public/index.php';
