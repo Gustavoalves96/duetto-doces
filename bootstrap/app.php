@@ -10,12 +10,6 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
-        // registrado aqui, e nao em web.php, para ficar FORA do grupo 'web':
-        // sessao e cookie criptografado sao justamente o que precisamos
-        // diagnosticar, entao o diagnostico nao pode depender deles
-        then: function () {
-            require __DIR__.'/../routes/diagnostico.php';
-        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // A Vercel termina o TLS num proxy e repassa a requisição em http.
