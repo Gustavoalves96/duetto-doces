@@ -31,7 +31,10 @@ class PedidoForm
         return $schema
             ->components([
                 Section::make('Pedido')
-                    ->columns(3)
+                    // linha inteira: o formulário tem 2 colunas por padrão, e em
+                    // meia largura este bloco de 3 campos não cabe num notebook
+                    ->columnSpanFull()
+                    ->columns(['default' => 1, 'md' => 3])
                     ->schema([
                         Select::make('tipo')
                             ->label('Tipo')
@@ -94,6 +97,9 @@ class PedidoForm
 
                 Section::make('Itens')
                     ->description('O custo de cada item é congelado quando o pedido sai de orçamento. Depois disso ele não muda mais, nem se o chocolate subir.')
+                    // linha inteira: em meia largura o campo de quantidade sumia
+                    // atrás do sufixo "un" em telas de notebook
+                    ->columnSpanFull()
                     ->schema([
                         Repeater::make('itens')
                             ->relationship()
@@ -101,6 +107,7 @@ class PedidoForm
                             ->columns([
                                 'default' => 1,
                                 'md' => 2,
+                                'lg' => 6,
                                 'xl' => 12,
                             ])
                             ->minItems(1)
@@ -115,7 +122,7 @@ class PedidoForm
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 5])
+                                    ->columnSpan(['default' => 1, 'md' => 2, 'lg' => 3, 'xl' => 5])
                                     ->validationMessages(['required' => 'Escolha o produto.'])
                                     // puxa o preço de tabela, mas deixa editar (combinado é combinado)
                                     ->afterStateUpdated(function (Set $set, ?string $state) {
@@ -131,7 +138,7 @@ class PedidoForm
                                     ->required()
                                     ->default('1')
                                     ->live(onBlur: true)
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 2])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 2])
                                     ->validationMessages(['required' => 'Informe a quantidade.']),
 
                                 CampoDinheiro::make('preco_unitario')
@@ -139,12 +146,12 @@ class PedidoForm
                                     ->maiorQueZero()
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 2])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 2])
                                     ->validationMessages(['required' => 'Informe o preço unitário.']),
 
                                 Placeholder::make('total_linha')
                                     ->label('Total')
-                                    ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 3])
+                                    ->columnSpan(['default' => 1, 'md' => 2, 'lg' => 1, 'xl' => 3])
                                     ->content(fn (Get $get) => Decimal::paraReal(
                                         Decimal::mul(Decimal::deBr($get('quantidade')), Decimal::deBr($get('preco_unitario')))
                                     )),
@@ -152,14 +159,14 @@ class PedidoForm
                     ]),
 
                 Section::make('Pagamento')
-                    ->columns(4)
+                    ->columns(['default' => 1, 'sm' => 2, '2xl' => 4])
                     ->schema([
                         Select::make('forma_pagamento')
                             ->label('Forma de pagamento')
                             ->options(FormaPagamento::class)
                             ->native(false)
                             ->live()
-                            ->columnSpan(2)
+                            ->columnSpan(['default' => 1, '2xl' => 2])
                             // sugere a taxa da maquininha; o valor real fica editável
                             ->afterStateUpdated(function (Set $set, Get $get, $state) {
                                 $forma = $state instanceof FormaPagamento
@@ -182,7 +189,7 @@ class PedidoForm
                             ->naoNegativo()
                             ->default('0')
                             ->live(onBlur: true)
-                            ->columnSpan(2)
+                            ->columnSpan(['default' => 1, '2xl' => 2])
                             ->helperText('Maquininha, delivery. Sai do faturamento líquido.'),
 
                         CampoDinheiro::make('desconto')
@@ -190,20 +197,20 @@ class PedidoForm
                             ->naoNegativo()
                             ->default('0')
                             ->live(onBlur: true)
-                            ->columnSpan(2),
+                            ->columnSpan(['default' => 1, '2xl' => 2]),
 
                         CampoDinheiro::make('sinal_pago')
                             ->label('Sinal já pago')
                             ->naoNegativo()
                             ->default('0')
                             ->live(onBlur: true)
-                            ->columnSpan(2)
+                            ->columnSpan(['default' => 1, '2xl' => 2])
                             ->visible(fn (Get $get) => self::ehEncomenda($get))
                             ->helperText('Entrada que o cliente deixou.'),
                     ]),
 
                 Section::make('Conferência')
-                    ->columns(4)
+                    ->columns(['default' => 2, '2xl' => 4])
                     ->schema([
                         Placeholder::make('resumo_subtotal')
                             ->label('Subtotal')
@@ -240,6 +247,7 @@ class PedidoForm
 
                 Section::make('Observações')
                     ->collapsed()
+                    ->columnSpanFull()
                     ->schema([
                         Textarea::make('observacoes')
                             ->hiddenLabel()

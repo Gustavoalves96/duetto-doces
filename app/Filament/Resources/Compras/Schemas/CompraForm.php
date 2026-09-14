@@ -25,9 +25,12 @@ class CompraForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            // coluna única: o padrão de 2 colunas põe cada seção em meia largura,
+            // e o repeater de itens não cabe nisso num notebook
+            ->columns(1)
             ->components([
                 Section::make('Nota')
-                    ->columns(3)
+                    ->columns(['default' => 1, 'md' => 3])
                     ->schema([
                         TextInput::make('fornecedor')
                             ->label('Fornecedor')
@@ -57,12 +60,13 @@ class CompraForm
                         Repeater::make('itens')
                             ->relationship()
                             ->hiddenLabel()
-                            // 12 colunas só em telas largas. Um columns(12) simples vira
-                            // ['lg' => 12], e a 1024px cada coluna fica com ~75px — o
-                            // suficiente para quebrar "Grama (g)" letra por letra.
+                            // degraus por largura de TELA (o Tailwind não conhece a do
+                            // container): 12 colunas só em xl; em lg, com a barra
+                            // lateral aberta, o conteúdo tem ~700px e 6 colunas bastam
                             ->columns([
                                 'default' => 1,
                                 'md' => 2,
+                                'lg' => 6,
                                 'xl' => 12,
                             ])
                             ->minItems(1)
@@ -82,7 +86,7 @@ class CompraForm
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 4])
+                                    ->columnSpan(['default' => 1, 'md' => 2, 'lg' => 2, 'xl' => 4])
                                     ->afterStateUpdated(function (Set $set, ?string $state) {
                                         $insumo = Insumo::find($state);
                                         // já entra na unidade da embalagem (kg, L, un)
@@ -118,7 +122,7 @@ class CompraForm
                                      * Não vai para o banco porque converter()
                                      * remove a chave antes de salvar.
                                      */
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 2])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 2])
                                     ->validationMessages(['required' => 'Escolha a unidade.']),
 
                                 CampoQuantidade::make('quantidade')
@@ -126,7 +130,7 @@ class CompraForm
                                     ->maiorQueZero()
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 2])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 2])
                                     ->validationMessages(['required' => 'Informe a quantidade.']),
 
                                 CampoDinheiro::make('valor_total')
@@ -134,12 +138,12 @@ class CompraForm
                                     ->maiorQueZero()
                                     ->required()
                                     ->live(onBlur: true)
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 2])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 2])
                                     ->validationMessages(['required' => 'Informe quanto foi pago neste item.']),
 
                                 Placeholder::make('custo_convertido')
                                     ->label('Custo unitário')
-                                    ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 2])
+                                    ->columnSpan(['default' => 1, 'md' => 2, 'lg' => 1, 'xl' => 2])
                                     ->content(function (Get $get) {
                                         $insumo = self::insumoDe($get);
                                         $quantidade = Decimal::deBr($get('quantidade'));

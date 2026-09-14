@@ -13,9 +13,11 @@ class ClienteForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            // seção única: sem isso ela fica em meia largura, com a outra metade vazia
+            ->columns(1)
             ->components([
                 Section::make('Cliente')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'md' => 2])
                     ->schema([
                         TextInput::make('nome')
                             ->label('Nome')

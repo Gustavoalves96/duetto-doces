@@ -22,7 +22,7 @@ class InsumoForm
         return $schema
             ->components([
                 Section::make('Identificação')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('nome')
                             ->label('Nome do insumo')
@@ -65,7 +65,7 @@ class InsumoForm
 
                 Section::make('Saldo inicial')
                     ->description('Só na criação. Depois disso o saldo muda por compra, produção, perda ou ajuste.')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->visibleOn('create')
                     ->schema([
                         CampoQuantidade::make('estoque_atual')
@@ -83,7 +83,7 @@ class InsumoForm
                     ]),
 
                 Section::make('Situação atual')
-                    ->columns(3)
+                    ->columns(['default' => 1, 'sm' => 3])
                     ->visibleOn('edit')
                     ->schema([
                         CampoQuantidade::make('estoque_atual')

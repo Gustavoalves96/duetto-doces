@@ -23,9 +23,11 @@ class ReceitaForm
     public static function configure(Schema $schema): Schema
     {
         return $schema
+            // coluna única pelo mesmo motivo do formulário de compras
+            ->columns(1)
             ->components([
                 Section::make('Ficha técnica')
-                    ->columns(3)
+                    ->columns(['default' => 1, 'md' => 3])
                     ->schema([
                         Select::make('produto_id')
                             ->label('Produto que sai desta receita')
@@ -71,6 +73,7 @@ class ReceitaForm
                             ->columns([
                                 'default' => 1,
                                 'md' => 2,
+                                'lg' => 4,
                                 'xl' => 12,
                             ])
                             ->minItems(1)
@@ -86,7 +89,7 @@ class ReceitaForm
                                     ->required()
                                     ->live()
                                     ->distinct()
-                                    ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 6])
+                                    ->columnSpan(['default' => 1, 'md' => 2, 'lg' => 2, 'xl' => 6])
                                     ->validationMessages([
                                         'required' => 'Escolha o insumo.',
                                         'distinct' => 'Este insumo já está na ficha.',
@@ -98,12 +101,12 @@ class ReceitaForm
                                     ->required()
                                     ->live(onBlur: true)
                                     ->suffix(fn (Get $get) => Insumo::find($get('insumo_id'))?->unidade_base->sufixo())
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 3])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 3])
                                     ->validationMessages(['required' => 'Informe a quantidade.']),
 
                                 Placeholder::make('custo_linha')
                                     ->label('Custo hoje')
-                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 3])
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'lg' => 1, 'xl' => 3])
                                     ->content(function (Get $get) {
                                         $insumo = Insumo::find($get('insumo_id'));
 
@@ -120,7 +123,7 @@ class ReceitaForm
 
                 Section::make('Custo estimado')
                     ->description('Projeção com os custos médios de hoje. O custo real é o que a produção gravar.')
-                    ->columns(3)
+                    ->columns(['default' => 1, 'sm' => 3])
                     ->visibleOn('edit')
                     ->schema([
                         Placeholder::make('custo_fornada')

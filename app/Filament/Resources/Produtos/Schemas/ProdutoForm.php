@@ -19,7 +19,7 @@ class ProdutoForm
         return $schema
             ->components([
                 Section::make('Produto')
-                    ->columns(2)
+                    ->columns(['default' => 1, 'sm' => 2])
                     ->schema([
                         TextInput::make('nome')
                             ->label('Nome do produto')
@@ -48,7 +48,7 @@ class ProdutoForm
 
                 Section::make('Custo e margem')
                     ->description('Calculado pela ficha técnica. Não dá para digitar — e é isso que faz os relatórios valerem alguma coisa.')
-                    ->columns(3)
+                    ->columns(['default' => 1, 'sm' => 3])
                     ->visibleOn('edit')
                     ->schema([
                         CampoDinheiro::make('custo_unitario')
