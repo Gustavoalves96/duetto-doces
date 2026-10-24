@@ -14,6 +14,8 @@ class ClientesTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada linha vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('nome')
             ->columns([
                 TextColumn::make('nome')
@@ -41,7 +43,12 @@ class ClientesTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    // botão e não link: só botão sabe esconder o texto abaixo de 1536px,
+                    // e sem isso a linha não cabe no tablet nem no notebook
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Editar'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

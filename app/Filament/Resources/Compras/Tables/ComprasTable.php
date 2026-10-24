@@ -22,6 +22,8 @@ class ComprasTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada linha vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('data', 'desc')
             ->columns([
                 TextColumn::make('data')
@@ -36,6 +38,8 @@ class ComprasTable
                     ->weight('medium'),
 
                 TextColumn::make('itens_count')
+                    // só a partir do notebook; no tablet a linha não cabe
+                    ->visibleFrom('xl')
                     ->label('Itens')
                     ->counts('itens')
                     ->alignCenter(),
@@ -64,9 +68,17 @@ class ComprasTable
                     ]),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    // botão e não link: só botão sabe esconder o texto abaixo de 1536px,
+                    // e sem isso a linha não cabe no tablet nem no notebook
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Editar'),
 
                 Action::make('estornar')
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Estornar')
                     ->label('Estornar')
                     ->icon('heroicon-m-arrow-uturn-left')
                     ->color('danger')
@@ -86,6 +98,9 @@ class ComprasTable
                     }),
 
                 Action::make('aplicar')
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Lançar no estoque')
                     ->label('Lançar no estoque')
                     ->icon('heroicon-m-arrow-down-tray')
                     ->color('success')

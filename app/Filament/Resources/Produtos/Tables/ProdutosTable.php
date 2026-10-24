@@ -24,6 +24,8 @@ class ProdutosTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada linha vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('nome')
             ->columns([
                 TextColumn::make('nome')
@@ -39,6 +41,8 @@ class ProdutosTable
                     ->money('BRL', locale: 'pt_BR'),
 
                 TextColumn::make('custo_unitario')
+                    // só a partir do notebook; no tablet a linha não cabe
+                    ->visibleFrom('xl')
                     ->label('Custo')
                     ->sortable()
                     ->alignEnd()
@@ -80,11 +84,19 @@ class ProdutosTable
                     ->toggle(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    // botão e não link: só botão sabe esconder o texto abaixo de 1536px,
+                    // e sem isso a linha não cabe no tablet nem no notebook
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Editar'),
 
                 Action::make('registrar_perda')
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Perda')
                     ->label('Perda')
-                    ->icon('heroicon-m-trash')
+                    ->icon('heroicon-m-archive-box-x-mark')
                     ->color('danger')
                     ->modalHeading(fn (Produto $record) => 'Registrar perda de '.$record->nome)
                     ->modalDescription('Fornada queimada, produto que passou do ponto, caiu no chão.')
@@ -120,6 +132,9 @@ class ProdutosTable
                     }),
 
                 Action::make('ajustar_estoque')
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Ajustar')
                     ->label('Ajustar')
                     ->icon('heroicon-m-adjustments-horizontal')
                     ->color('warning')

@@ -18,6 +18,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
@@ -210,6 +211,15 @@ class PedidoForm
                             ->columnSpan(['default' => 1, '2xl' => 2])
                             ->visible(fn (Get $get) => self::ehEncomenda($get))
                             ->helperText('Entrada que o cliente deixou.'),
+
+                        Toggle::make('pago')
+                            ->label('Já foi pago')
+                            ->inline(false)
+                            ->default(false)
+                            ->live()
+                            ->columnSpan(['default' => 1, '2xl' => 2])
+                            ->visible(fn (Get $get) => self::ehEncomenda($get))
+                            ->helperText('Ligue quando o cliente pagar tudo. Dá para mudar depois na lista de pedidos.'),
                     ]),
 
                 Section::make('Conferência')
@@ -235,7 +245,7 @@ class PedidoForm
                         Placeholder::make('resumo_saldo')
                             ->label('Falta receber')
                             ->visible(fn (Get $get) => self::ehEncomenda($get))
-                            ->content(fn (Get $get) => Decimal::paraReal(Decimal::sub(
+                            ->content(fn (Get $get) => $get('pago') ? Decimal::paraReal('0') : Decimal::paraReal(Decimal::sub(
                                 Decimal::sub(self::subtotalDoForm($get), Decimal::deBr($get('desconto'))),
                                 Decimal::deBr($get('sinal_pago'))
                             ))),

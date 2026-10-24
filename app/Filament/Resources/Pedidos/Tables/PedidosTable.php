@@ -4,7 +4,7 @@ namespace App\Filament\Resources\Pedidos\Tables;
 
 use App\Enums\StatusPedido;
 use App\Enums\TipoPedido;
-use App\Filament\Resources\Pedidos\Actions\AcoesDeEntrega;
+use App\Filament\Resources\Pedidos\Actions\AcoesDeEncomenda;
 use App\Models\Pedido;
 use App\Services\FinalizarPedido;
 use App\Support\Decimal;
@@ -27,28 +27,29 @@ class PedidosTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada pedido vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('id', 'desc')
             ->columns([
+                // a data do pedido mora embaixo do número: uma coluna a menos
+                // é o que faz a tabela caber no notebook e no tablet
                 TextColumn::make('id')
                     ->label('Pedido')
                     ->formatStateUsing(fn (Pedido $record) => $record->identificacao)
+                    ->description(fn (Pedido $record) => $record->data->format('d/m/y'))
                     ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('data')
-                    ->label('Data')
-                    ->date('d/m/Y')
                     ->sortable(),
 
                 TextColumn::make('cliente.nome')
                     ->label('Cliente')
                     ->searchable()
+                    ->wrap()
                     ->default('Balcão')
                     ->description(fn (Pedido $record) => $record->tipo->getLabel()),
 
                 TextColumn::make('data_entrega')
                     ->label('Entrega')
-                    ->date('d/m/Y')
+                    ->date('d/m/y')
                     ->placeholder('—')
                     ->sortable()
                     // encomenda atrasada e ainda aberta precisa saltar aos olhos
@@ -58,19 +59,13 @@ class PedidosTable
                             ? 'danger'
                             : null),
 
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->sortable(),
+                self::colunaStatus(),
 
-                TextColumn::make('total')
-                    ->label('Total')
-                    ->alignEnd()
-                    ->state(fn (Pedido $record) => $record->total())
-                    ->money('BRL', locale: 'pt_BR')
-                    ->description(fn (Pedido $record) => Decimal::positivo($record->taxa_operadora)
-                        ? 'líquido '.Decimal::paraReal($record->faturamentoLiquido())
-                        : null),
+                // o total some só entre 1024 e 1279 px, onde o menu lateral
+                // aberto rouba o espaço; o Filament não tem "só nesta faixa",
+                // então são duas cópias da coluna, uma de cada lado da faixa
+                self::colunaTotal('total')->hiddenFrom('lg'),
+                self::colunaTotal('total_amplo')->visibleFrom('xl'),
 
                 TextColumn::make('margem')
                     ->label('Margem')
@@ -83,6 +78,7 @@ class PedidosTable
                         Decimal::negativo($record->margemContribuicao()) => 'danger',
                         default => 'success',
                     })
+                    ->visibleFrom('xl')
                     ->toggleable(),
 
                 TextColumn::make('saldo')
@@ -90,6 +86,7 @@ class PedidosTable
                     ->alignEnd()
                     ->state(fn (Pedido $record) => Decimal::paraReal($record->saldoAReceber()))
                     ->color(fn (Pedido $record) => Decimal::positivo($record->saldoAReceber()) ? 'warning' : 'success')
+                    ->visibleFrom('xl')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
@@ -107,6 +104,14 @@ class PedidosTable
                     ->query(fn (Builder $query) => $query->pendentes())
                     ->toggle(),
 
+                Filter::make('nao_pagas')
+                    ->label('Encomendas não pagas')
+                    ->query(fn (Builder $query) => $query
+                        ->where('tipo', TipoPedido::Encomenda->value)
+                        ->where('pago', false)
+                        ->where('status', '!=', StatusPedido::Cancelado->value))
+                    ->toggle(),
+
                 Filter::make('atrasadas')
                     ->label('Entrega atrasada')
                     ->query(fn (Builder $query) => $query
@@ -122,14 +127,17 @@ class PedidosTable
             ])
             ->recordActions([
                 // mudar status é ação, nunca um select dentro do formulário
-                AcoesDeEntrega::entregar(),
+                // no celular e no tablet vira só o ícone do caminhão
+                AcoesDeEncomenda::entregar()->labeledFrom('xl'),
 
                 ActionGroup::make([
                     EditAction::make(),
 
-                    AcoesDeEntrega::alterarEntrega(),
+                    AcoesDeEncomenda::alternarPagamento(),
 
-                    AcoesDeEntrega::desfazerEntrega(),
+                    AcoesDeEncomenda::alterarEntrega(),
+
+                    AcoesDeEncomenda::desfazerEntrega(),
 
                     Action::make('cancelar')
                         ->label('Cancelar pedido')
@@ -162,5 +170,46 @@ class PedidosTable
             ->emptyStateHeading('Nenhum pedido')
             ->emptyStateDescription('Encomenda tem cliente e data de entrega; depois é só marcar como entregue. Venda avulsa é balcão e já sai finalizada.')
             ->emptyStateIcon('heroicon-o-shopping-bag');
+    }
+
+    private static function colunaTotal(string $nome): TextColumn
+    {
+        return TextColumn::make($nome)
+            ->label('Total')
+            ->alignEnd()
+            ->state(fn (Pedido $record) => $record->total())
+            ->money('BRL', locale: 'pt_BR')
+            ->description(fn (Pedido $record) => Decimal::positivo($record->taxa_operadora)
+                ? 'líquido '.Decimal::paraReal($record->faturamentoLiquido())
+                : null);
+    }
+
+    /**
+     * Status do pedido e, se for encomenda, o pagamento embaixo, na mesma
+     * célula. Numa coluna própria a tabela passava da tela do notebook.
+     * Venda avulsa é paga no balcão e fica só com o status.
+     */
+    public static function colunaStatus(): TextColumn
+    {
+        return TextColumn::make('status')
+            ->label('Status')
+            ->badge()
+            ->listWithLineBreaks()
+            ->state(fn (Pedido $record) => array_values(array_filter([
+                $record->status,
+                $record->tipo === TipoPedido::Encomenda ? ($record->pago ? 'Pago' : 'Não pago') : null,
+            ])))
+            ->formatStateUsing(fn ($state) => $state instanceof StatusPedido ? $state->getLabel() : $state)
+            ->color(fn ($state) => match (true) {
+                $state instanceof StatusPedido => $state->getColor(),
+                $state === 'Pago' => 'success',
+                default => 'warning',
+            })
+            ->icon(fn ($state) => match (true) {
+                $state instanceof StatusPedido => $state->getIcon(),
+                $state === 'Pago' => 'heroicon-m-banknotes',
+                default => 'heroicon-m-exclamation-circle',
+            })
+            ->sortable();
     }
 }

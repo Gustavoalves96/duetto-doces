@@ -25,6 +25,8 @@ class ReceitasTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada linha vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('id')
             ->columns([
                 TextColumn::make('produto.nome')
@@ -35,11 +37,14 @@ class ReceitasTable
                     ->description(fn (Receita $record) => $record->nome),
 
                 TextColumn::make('rendimento')
+                    // só a partir do notebook; no tablet a linha não cabe
+                    ->visibleFrom('xl')
                     ->label('Rende')
                     ->alignCenter()
                     ->formatStateUsing(fn ($state) => Decimal::paraBrEnxuto($state).' un'),
 
                 TextColumn::make('itens_count')
+                    ->visibleFrom('xl')
                     ->label('Ingredientes')
                     ->counts('itens')
                     ->alignCenter(),
@@ -92,10 +97,14 @@ class ReceitasTable
             ->recordActions([
                 // Produção não é CRUD: é um evento disparado a partir da ficha.
                 Action::make('produzir')
+                    // botão e não link: só botão sabe esconder o texto abaixo de 1536px,
+                    // e sem isso a linha não cabe no tablet nem no notebook
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Produzir')
                     ->label('Produzir')
                     ->icon('heroicon-m-fire')
                     ->color('success')
-                    ->button()
                     ->modalHeading(fn (Receita $record) => 'Produzir '.($record->produto?->nome ?? 'produto'))
                     ->modalDescription('Os insumos são baixados e o custo real do lote é calculado agora.')
                     ->modalSubmitActionLabel('Confirmar produção')
@@ -163,7 +172,10 @@ class ReceitasTable
                         }
                     }),
 
-                EditAction::make(),
+                EditAction::make()
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Editar'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

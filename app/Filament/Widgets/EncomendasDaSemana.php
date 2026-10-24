@@ -2,9 +2,11 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Resources\Pedidos\Actions\AcoesDeEntrega;
+use App\Filament\Resources\Pedidos\Actions\AcoesDeEncomenda;
+use App\Filament\Resources\Pedidos\Tables\PedidosTable;
 use App\Models\Pedido;
 use App\Support\Decimal;
+use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -25,24 +27,29 @@ class EncomendasDaSemana extends TableWidget
     public function table(Table $table): Table
     {
         return $table
+            ->stackedOnMobile()
             ->query(fn (): Builder => Pedido::query()
                 ->pendentes()
                 ->with(['cliente', 'itens.produto'])
                 ->orderBy('data_entrega'))
             ->defaultPaginationPageOption(5)
+            // no celular vira cartão e mostra tudo; na tabela, o número do
+            // pedido e o total só aparecem quando a tela tem espaço
             ->columns([
                 TextColumn::make('id')
                     ->label('Pedido')
-                    ->formatStateUsing(fn (Pedido $record) => $record->identificacao),
+                    ->formatStateUsing(fn (Pedido $record) => $record->identificacao)
+                    ->visibleFrom('lg'),
 
                 TextColumn::make('cliente.nome')
                     ->label('Cliente')
                     ->default('—')
+                    ->wrap()
                     ->searchable(),
 
                 TextColumn::make('data_entrega')
                     ->label('Entrega')
-                    ->date('d/m/Y')
+                    ->date('d/m')
                     ->description(fn (Pedido $record) => $record->data_entrega?->diffForHumans())
                     ->color(fn (Pedido $record) => $record->data_entrega?->isPast() ? 'danger' : null)
                     ->sortable(),
@@ -54,20 +61,23 @@ class EncomendasDaSemana extends TableWidget
                         ->map(fn ($item) => Decimal::paraBr($item->quantidade, 0).'x '.($item->produto?->nome ?? '?'))
                         ->implode(', ')),
 
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge(),
+                PedidosTable::colunaStatus(),
 
                 TextColumn::make('total')
                     ->label('Total')
                     ->alignEnd()
+                    ->visibleFrom('xl')
                     ->state(fn (Pedido $record) => $record->total())
                     ->money('BRL', locale: 'pt_BR'),
             ])
             ->recordActions([
-                AcoesDeEntrega::entregar(),
+                AcoesDeEncomenda::entregar()->labeledFrom('xl'),
 
-                AcoesDeEntrega::alterarEntrega()->iconButton(),
+                ActionGroup::make([
+                    AcoesDeEncomenda::alternarPagamento(),
+
+                    AcoesDeEncomenda::alterarEntrega(),
+                ]),
             ])
             ->emptyStateHeading('Nenhuma encomenda em aberto')
             ->emptyStateDescription('Tudo entregue por aqui.')

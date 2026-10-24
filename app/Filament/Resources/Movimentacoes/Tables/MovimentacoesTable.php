@@ -18,6 +18,8 @@ class MovimentacoesTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada linha vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('id', 'desc')
             ->columns([
                 TextColumn::make('created_at')
@@ -50,6 +52,8 @@ class MovimentacoesTable
                     }),
 
                 TextColumn::make('custo_unitario')
+                    // só a partir do notebook; no tablet a linha não cabe
+                    ->visibleFrom('xl')
                     ->label('Custo unit.')
                     ->alignEnd()
                     ->formatStateUsing(fn ($state) => 'R$ '.Decimal::paraBr($state, 4))
@@ -62,6 +66,7 @@ class MovimentacoesTable
                     ->money('BRL', locale: 'pt_BR'),
 
                 TextColumn::make('observacao')
+                    ->visibleFrom('xl')
                     ->label('Observação')
                     ->wrap()
                     ->limit(60)

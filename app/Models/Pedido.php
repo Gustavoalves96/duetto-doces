@@ -20,7 +20,7 @@ class Pedido extends Model
 
     protected $fillable = [
         'cliente_id', 'tipo', 'status', 'data', 'data_entrega', 'desconto',
-        'sinal_pago', 'forma_pagamento', 'taxa_operadora', 'observacoes',
+        'sinal_pago', 'pago', 'forma_pagamento', 'taxa_operadora', 'observacoes',
     ];
 
     protected function casts(): array
@@ -33,6 +33,7 @@ class Pedido extends Model
             'data_entrega' => 'date',
             'desconto' => 'decimal:2',
             'sinal_pago' => 'decimal:2',
+            'pago' => 'boolean',
             'taxa_operadora' => 'decimal:2',
             'baixado_em' => 'datetime',
         ];
@@ -127,7 +128,20 @@ class Pedido extends Model
 
     public function saldoAReceber(): string
     {
+        if ($this->estaPago()) {
+            return '0.00';
+        }
+
         return bcsub($this->total(), (string) $this->sinal_pago, 2);
+    }
+
+    /**
+     * Venda avulsa é paga no balcão, na hora. Encomenda depende de alguém
+     * marcar: o sinal sozinho não quita.
+     */
+    public function estaPago(): bool
+    {
+        return $this->tipo === TipoPedido::Avulsa || $this->pago;
     }
 
     /** O estoque de produto já foi baixado por este pedido? */

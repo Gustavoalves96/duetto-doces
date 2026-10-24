@@ -11,17 +11,20 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 
 /**
- * O fluxo da encomenda é só este: está a entregar ou foi entregue.
- * Sem passo de produção ou "pronto" no meio — eles marcam e seguem.
+ * O fluxo da encomenda é só este: está a entregar ou foi entregue, e está
+ * paga ou não. Sem passo de produção ou "pronto" no meio — eles marcam e
+ * seguem.
  *
  * Usado na listagem de pedidos e no widget de encomendas do dashboard.
  */
-class AcoesDeEntrega
+class AcoesDeEncomenda
 {
     public static function entregar(): Action
     {
         return Action::make('entregar')
-            ->label('Marcar como entregue')
+            // curto de propósito: na tabela, um rótulo longo empurra o botão para fora
+            ->label('Entregar')
+            ->tooltip('Marcar como entregue')
             ->icon('heroicon-m-truck')
             ->color('success')
             ->button()
@@ -89,6 +92,28 @@ class AcoesDeEntrega
 
                 Notification::make()
                     ->title('Entrega de '.$record->identificacao.' para '.$record->data_entrega->format('d/m/Y'))
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Pago e não pago é um interruptor: um rótulo de cada lado. Só marca o
+     * campo; o sinal digitado no pedido continua lá, como histórico.
+     */
+    public static function alternarPagamento(): Action
+    {
+        return Action::make('alternarPagamento')
+            ->label(fn (Pedido $record) => $record->pago ? 'Marcar como não pago' : 'Marcar como pago')
+            ->icon(fn (Pedido $record) => $record->pago ? 'heroicon-m-x-mark' : 'heroicon-m-banknotes')
+            ->color(fn (Pedido $record) => $record->pago ? 'gray' : 'success')
+            ->visible(fn (Pedido $record) => $record->tipo === TipoPedido::Encomenda
+                && $record->status !== StatusPedido::Cancelado)
+            ->action(function (Pedido $record) {
+                $record->update(['pago' => ! $record->pago]);
+
+                Notification::make()
+                    ->title($record->identificacao.($record->pago ? ' pago' : ' marcado como não pago'))
                     ->success()
                     ->send();
             });

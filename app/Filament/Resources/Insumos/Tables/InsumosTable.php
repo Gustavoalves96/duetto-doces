@@ -25,6 +25,8 @@ class InsumosTable
     public static function configure(Table $table): Table
     {
         return $table
+            // no celular cada linha vira um cartão; do tablet pra cima é tabela
+            ->stackedOnMobile()
             ->defaultSort('nome')
             ->columns([
                 TextColumn::make('nome')
@@ -60,6 +62,8 @@ class InsumosTable
                     ).' / '.$record->unidade_base->unidadeCompra()),
 
                 TextColumn::make('valor_em_estoque')
+                    // só a partir do notebook; no tablet a linha não cabe
+                    ->visibleFrom('xl')
                     ->label('Valor parado')
                     ->alignEnd()
                     ->state(fn (Insumo $record) => $record->valorEmEstoque())
@@ -87,11 +91,19 @@ class InsumosTable
                     ->default(true),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    // botão e não link: só botão sabe esconder o texto abaixo de 1536px,
+                    // e sem isso a linha não cabe no tablet nem no notebook
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Editar'),
 
                 Action::make('registrar_perda')
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Perda')
                     ->label('Perda')
-                    ->icon('heroicon-m-trash')
+                    ->icon('heroicon-m-archive-box-x-mark')
                     ->color('danger')
                     ->modalHeading(fn (Insumo $record) => 'Registrar perda de '.$record->nome)
                     ->modalDescription('Insumo vencido, embalagem rasgada, sobra que estragou.')
@@ -127,6 +139,9 @@ class InsumosTable
                     }),
 
                 Action::make('ajustar_estoque')
+                    ->button()
+                    ->labeledFrom('2xl')
+                    ->tooltip('Ajustar')
                     ->label('Ajustar')
                     ->icon('heroicon-m-adjustments-horizontal')
                     ->color('warning')

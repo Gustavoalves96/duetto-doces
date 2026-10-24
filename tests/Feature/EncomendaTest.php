@@ -176,3 +176,80 @@ it('não oferece ações de entrega para venda avulsa', function () {
         ->assertActionHidden(TestAction::make('desfazerEntrega')->table($avulsa))
         ->assertActionHidden(TestAction::make('alterarEntrega')->table($avulsa));
 });
+
+it('cria a encomenda já marcada como paga', function () {
+    $produto = produtoParaEncomenda();
+    $cliente = Cliente::create(['nome' => 'Marina']);
+
+    Livewire::test(CreatePedido::class)
+        ->fillForm(['tipo' => TipoPedido::Encomenda->value])
+        ->fillForm([
+            'cliente_id' => $cliente->id,
+            'data' => now()->toDateString(),
+            'data_entrega' => now()->addDays(2)->toDateString(),
+            'pago' => true,
+            'itens' => [['produto_id' => $produto->id, 'quantidade' => '2', 'preco_unitario' => '8,00']],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $pedido = Pedido::sole();
+
+    expect($pedido->pago)->toBeTrue()
+        ->and($pedido->saldoAReceber())->toBe('0.00');
+});
+
+it('encomenda nova nasce não paga, com o saldo em aberto', function () {
+    $pedido = encomendaAEntregar(produtoParaEncomenda(), ['sinal_pago' => '10.00']);
+
+    expect($pedido->pago)->toBeFalse()
+        ->and($pedido->saldoAReceber())->toBe('22.00');
+});
+
+it('marca e desmarca o pagamento pela listagem sem mexer em status nem estoque', function () {
+    $produto = produtoParaEncomenda();
+    $pedido = encomendaAEntregar($produto, ['sinal_pago' => '10.00']);
+    $estoque = (string) $produto->refresh()->estoque_atual;
+
+    Livewire::test(ListPedidos::class)
+        ->callAction(TestAction::make('alternarPagamento')->table($pedido));
+
+    $pedido->refresh();
+    expect($pedido->pago)->toBeTrue()
+        ->and($pedido->status)->toBe(StatusPedido::Confirmado)
+        ->and((string) $pedido->sinal_pago)->toBe('10.00')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe($estoque);
+
+    Livewire::test(ListPedidos::class)
+        ->callAction(TestAction::make('alternarPagamento')->table($pedido));
+
+    expect($pedido->refresh()->pago)->toBeFalse()
+        ->and($pedido->saldoAReceber())->toBe('22.00');
+});
+
+it('filtra as encomendas não pagas', function () {
+    $produto = produtoParaEncomenda();
+    $naoPaga = encomendaAEntregar($produto);
+    $paga = encomendaAEntregar($produto, ['pago' => true]);
+
+    Livewire::test(ListPedidos::class)
+        ->filterTable('nao_pagas')
+        ->assertCanSeeTableRecords([$naoPaga])
+        ->assertCanNotSeeTableRecords([$paga]);
+});
+
+it('trata venda avulsa como paga no balcão', function () {
+    $produto = produtoParaEncomenda();
+    $avulsa = Pedido::create([
+        'tipo' => TipoPedido::Avulsa,
+        'status' => StatusPedido::Entregue,
+        'data' => now()->toDateString(),
+    ]);
+    $avulsa->itens()->create(['produto_id' => $produto->id, 'quantidade' => '1', 'preco_unitario' => '8.00']);
+
+    expect($avulsa->refresh()->estaPago())->toBeTrue()
+        ->and($avulsa->saldoAReceber())->toBe('0.00');
+
+    Livewire::test(ListPedidos::class)
+        ->assertActionHidden(TestAction::make('alternarPagamento')->table($avulsa));
+});
