@@ -17,6 +17,8 @@ class CampoQuantidade extends TextInput
 {
     protected string|Closure|null $valorMinimo = null;
 
+    protected bool $inteiro = false;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,7 +34,7 @@ class CampoQuantidade extends TextInput
                     return null;
                 }
 
-                return Decimal::paraBr($state, Decimal::QUANTIDADE);
+                return Decimal::paraBr($state, $this->inteiro ? 0 : Decimal::QUANTIDADE);
             })
             ->dehydrateStateUsing(function (mixed $state): ?string {
                 if ($state === null || $state === '') {
@@ -53,13 +55,41 @@ class CampoQuantidade extends TextInput
                         return;
                     }
 
+                    if ($component->ehInteiro() && ! Decimal::ehZero(Decimal::sub(
+                        Decimal::deBr($value), bcadd(Decimal::deBr($value), '0', 0)
+                    ))) {
+                        $fail('Informe uma quantidade inteira, como 2.');
+
+                        return;
+                    }
+
                     $minimo = $component->getValorMinimo();
 
                     if ($minimo !== null && Decimal::menor(Decimal::deBr($value), $minimo)) {
-                        $fail('A quantidade precisa ser de no mínimo '.Decimal::paraBr($minimo, 3).'.');
+                        $fail('A quantidade precisa ser de no mínimo '
+                            .Decimal::paraBr($minimo, $component->ehInteiro() ? 0 : 3).'.');
                     }
                 },
             ]);
+    }
+
+    /**
+     * Só unidades inteiras: venda é por brownie, ninguém compra meio.
+     * O banco continua com 3 casas; muda só o que a pessoa digita e vê.
+     */
+    public function inteiro(): static
+    {
+        $this->inteiro = true;
+
+        return $this
+            ->placeholder('0')
+            ->inputMode('numeric')
+            ->mask(RawJs::make('$money($input, \',\', \'.\', 0)'));
+    }
+
+    public function ehInteiro(): bool
+    {
+        return $this->inteiro;
     }
 
     /** Quantidade tem que ser positiva em compra, receita e venda. */

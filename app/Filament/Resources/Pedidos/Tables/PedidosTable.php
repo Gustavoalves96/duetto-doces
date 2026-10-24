@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Pedidos\Tables;
 
 use App\Enums\StatusPedido;
 use App\Enums\TipoPedido;
+use App\Filament\Resources\Pedidos\Actions\AcoesDeEntrega;
 use App\Models\Pedido;
 use App\Services\FinalizarPedido;
 use App\Support\Decimal;
@@ -120,61 +121,15 @@ class PedidosTable
                     ]),
             ])
             ->recordActions([
-                // avançar status é ação, nunca um select dentro do formulário
-                Action::make('avancar')
-                    ->label(fn (Pedido $record) => match ($record->status) {
-                        StatusPedido::Orcamento => 'Confirmar',
-                        StatusPedido::Confirmado => 'Iniciar produção',
-                        StatusPedido::EmProducao => 'Marcar como pronto',
-                        StatusPedido::Pronto => 'Marcar como entregue',
-                        default => 'Avançar',
-                    })
-                    ->icon('heroicon-m-arrow-right-circle')
-                    ->color('success')
-                    ->button()
-                    ->visible(fn (Pedido $record) => $record->status->proximo() !== null)
-                    ->requiresConfirmation(fn (Pedido $record) => $record->status === StatusPedido::Orcamento)
-                    ->modalHeading('Confirmar pedido')
-                    ->modalDescription('Confirmar congela o custo dos itens e baixa o estoque de produto. É o momento em que a venda vira número no relatório.')
-                    ->modalSubmitActionLabel('Confirmar')
-                    ->action(function (Pedido $record, FinalizarPedido $servico) {
-                        $proximo = $record->status->proximo();
-
-                        if (! $proximo) {
-                            return;
-                        }
-
-                        $pedido = $servico->mudarStatus($record, $proximo);
-
-                        Notification::make()
-                            ->title($pedido->identificacao.' — '.$proximo->getLabel())
-                            ->body($pedido->jaBaixouEstoque()
-                                ? 'Custo congelado em '.Decimal::paraReal($pedido->cmv()).'.'
-                                : null)
-                            ->success()
-                            ->send();
-                    }),
+                // mudar status é ação, nunca um select dentro do formulário
+                AcoesDeEntrega::entregar(),
 
                 ActionGroup::make([
                     EditAction::make(),
 
-                    Action::make('voltar')
-                        ->label('Voltar para orçamento')
-                        ->icon('heroicon-m-arrow-uturn-left')
-                        ->color('gray')
-                        ->visible(fn (Pedido $record) => ! $record->status->finalizado()
-                            && $record->status !== StatusPedido::Orcamento)
-                        ->requiresConfirmation()
-                        ->modalDescription('O produto volta para o estoque e o pedido sai do faturamento.')
-                        ->action(function (Pedido $record, FinalizarPedido $servico) {
-                            $servico->mudarStatus($record, StatusPedido::Orcamento);
+                    AcoesDeEntrega::alterarEntrega(),
 
-                            Notification::make()
-                                ->title('Pedido voltou para orçamento')
-                                ->body('Produto devolvido ao estoque.')
-                                ->warning()
-                                ->send();
-                        }),
+                    AcoesDeEntrega::desfazerEntrega(),
 
                     Action::make('cancelar')
                         ->label('Cancelar pedido')
@@ -205,7 +160,7 @@ class PedidosTable
                 ]),
             ])
             ->emptyStateHeading('Nenhum pedido')
-            ->emptyStateDescription('Encomenda tem cliente e data de entrega. Venda avulsa é balcão e já sai finalizada.')
+            ->emptyStateDescription('Encomenda tem cliente e data de entrega; depois é só marcar como entregue. Venda avulsa é balcão e já sai finalizada.')
             ->emptyStateIcon('heroicon-o-shopping-bag');
     }
 }

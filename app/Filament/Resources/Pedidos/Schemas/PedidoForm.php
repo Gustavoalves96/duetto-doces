@@ -44,13 +44,13 @@ class PedidoForm
                             ->live()
                             ->default(TipoPedido::Avulsa)
                             ->disabledOn('edit')
-                            ->helperText('Encomenda tem data de entrega e passa pelo fluxo de status. Avulsa é venda de balcão, já finalizada.')
+                            ->helperText('Encomenda tem data de entrega; depois é só marcar como entregue na lista. Avulsa é venda de balcão, já finalizada.')
                             ->validationMessages(['required' => 'Escolha o tipo do pedido.'])
                             // o status inicial sai do tipo; ele não é editável no formulário
                             ->afterStateUpdated(fn (Set $set, $state) => $set(
                                 'status',
                                 TipoPedido::tryFrom((string) ($state instanceof TipoPedido ? $state->value : $state)) === TipoPedido::Encomenda
-                                    ? StatusPedido::Orcamento->value
+                                    ? StatusPedido::Confirmado->value
                                     : StatusPedido::Entregue->value
                             )),
 
@@ -88,15 +88,17 @@ class PedidoForm
                                 'after_or_equal' => 'A entrega não pode ser antes do pedido.',
                             ]),
 
-                        // status vive nas ações da listagem; aqui só o valor inicial
+                        // status vive nas ações da listagem; aqui só o valor inicial.
+                        // Encomenda já nasce confirmada: o produto fica reservado e
+                        // o único passo que sobra é marcar como entregue.
                         Hidden::make('status')
                             ->default(fn (Get $get) => self::ehEncomenda($get)
-                                ? StatusPedido::Orcamento->value
+                                ? StatusPedido::Confirmado->value
                                 : StatusPedido::Entregue->value),
                     ]),
 
                 Section::make('Itens')
-                    ->description('O custo de cada item é congelado quando o pedido sai de orçamento. Depois disso ele não muda mais, nem se o chocolate subir.')
+                    ->description('O custo de cada item é congelado quando o pedido é salvo. Depois disso ele não muda mais, nem se o chocolate subir.')
                     // linha inteira: em meia largura o campo de quantidade sumia
                     // atrás do sufixo "un" em telas de notebook
                     ->columnSpanFull()
@@ -134,7 +136,8 @@ class PedidoForm
                                 CampoQuantidade::make('quantidade')
                                     ->label('Qtd')
                                     ->suffix('un')
-                                    ->maiorQueZero()
+                                    ->inteiro()
+                                    ->minimo('1')
                                     ->required()
                                     ->default('1')
                                     ->live(onBlur: true)
@@ -240,7 +243,7 @@ class PedidoForm
                         Text::make(fn (?Pedido $record) => $record && $record->jaBaixouEstoque()
                             ? 'Custo congelado: '.Decimal::paraReal($record->cmv())
                                 .' · margem de contribuição: '.Decimal::paraReal($record->margemContribuicao())
-                            : 'O custo é congelado quando o pedido deixa de ser orçamento.')
+                            : 'O custo é congelado quando o pedido é salvo.')
                             ->color('gray')
                             ->columnSpanFull(),
                     ]),

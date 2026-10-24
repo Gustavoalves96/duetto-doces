@@ -2,8 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Services\RelatorioFinanceiro;
-use App\Support\Decimal;
+use App\Filament\Widgets\Relatorios as Widgets;
 use BackedEnum;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -17,7 +16,8 @@ use UnitEnum;
 
 /**
  * Fechamento do período. Tudo aqui sai do serviço de relatório, que soma em
- * decimal exato a partir do custo CONGELADO nos itens do pedido.
+ * decimal exato a partir do custo CONGELADO nos itens do pedido. A página só
+ * escolhe o período; os números e gráficos são os widgets do rodapé.
  */
 class Relatorios extends Page
 {
@@ -104,32 +104,31 @@ class Relatorios extends Page
         $this->ate = $ate->toDateString();
     }
 
-    /** Tudo que a view precisa, calculado de uma vez só. */
-    public function getDadosProperty(): array
+    /**
+     * Os gráficos ficam no rodapé da página, abaixo do filtro de período.
+     * Cada um recebe "de" e "até" e se redesenha quando o filtro muda.
+     */
+    protected function getFooterWidgets(): array
     {
-        $servico = app(RelatorioFinanceiro::class);
-        $de = Carbon::parse($this->de ?? now()->startOfMonth());
-        $ate = Carbon::parse($this->ate ?? now());
-
         return [
-            'de' => $de,
-            'ate' => $ate,
-            'resumo' => $servico->resumo($de, $ate),
-            'produtos' => $servico->margemPorProduto($de, $ate),
-            'despesas' => $servico->despesasPorCategoria($de, $ate),
-            'equilibrio' => $servico->pontoEquilibrio($de, $ate),
-            'estoque' => $servico->valorEmEstoque(),
+            Widgets\ResumoDoPeriodo::class,
+            Widgets\DestinoDoFaturamento::class,
+            Widgets\FaturamentoPorProduto::class,
+            Widgets\MargemPorProduto::class,
+            Widgets\DespesasPorCategoria::class,
+            Widgets\FaturamentoNoPeriodo::class,
+            Widgets\Demonstrativo::class,
+            Widgets\DinheiroEmEstoque::class,
         ];
     }
 
-    /** Helper para a view não precisar importar o Decimal. */
-    public function real(mixed $valor): string
+    public function getFooterWidgetsColumns(): int|array
     {
-        return Decimal::paraReal($valor);
+        return ['default' => 1, 'lg' => 2];
     }
 
-    public function numero(mixed $valor, int $casas = 2): string
+    public function getWidgetData(): array
     {
-        return Decimal::paraBr($valor, $casas);
+        return ['de' => $this->de, 'ate' => $this->ate];
     }
 }

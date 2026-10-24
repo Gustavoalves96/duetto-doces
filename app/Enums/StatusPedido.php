@@ -8,6 +8,8 @@ use Filament\Support\Contracts\HasLabel;
 
 enum StatusPedido: string implements HasColor, HasIcon, HasLabel
 {
+    // Encomenda nova nasce em Confirmado ("a entregar") e vai direto para
+    // Entregue. Orçamento, Em produção e Pronto ficam para pedidos antigos.
     case Orcamento = 'orcamento';
     case Confirmado = 'confirmado';
     case EmProducao = 'em_producao';
@@ -19,7 +21,7 @@ enum StatusPedido: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::Orcamento => 'Orçamento',
-            self::Confirmado => 'Confirmado',
+            self::Confirmado => 'A entregar',
             self::EmProducao => 'Em produção',
             self::Pronto => 'Pronto',
             self::Entregue => 'Entregue',
@@ -43,23 +45,11 @@ enum StatusPedido: string implements HasColor, HasIcon, HasLabel
     {
         return match ($this) {
             self::Orcamento => 'heroicon-m-document-text',
-            self::Confirmado => 'heroicon-m-check-circle',
+            self::Confirmado => 'heroicon-m-clock',
             self::EmProducao => 'heroicon-m-fire',
             self::Pronto => 'heroicon-m-shopping-bag',
             self::Entregue => 'heroicon-m-truck',
             self::Cancelado => 'heroicon-m-x-circle',
-        };
-    }
-
-    /** Próximo status do fluxo normal, ou null se não houver. */
-    public function proximo(): ?self
-    {
-        return match ($this) {
-            self::Orcamento => self::Confirmado,
-            self::Confirmado => self::EmProducao,
-            self::EmProducao => self::Pronto,
-            self::Pronto => self::Entregue,
-            self::Entregue, self::Cancelado => null,
         };
     }
 

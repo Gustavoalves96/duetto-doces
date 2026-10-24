@@ -2,12 +2,9 @@
 
 namespace App\Filament\Widgets;
 
-use App\Enums\StatusPedido;
+use App\Filament\Resources\Pedidos\Actions\AcoesDeEntrega;
 use App\Models\Pedido;
-use App\Services\FinalizarPedido;
 use App\Support\Decimal;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -68,22 +65,9 @@ class EncomendasDaSemana extends TableWidget
                     ->money('BRL', locale: 'pt_BR'),
             ])
             ->recordActions([
-                Action::make('avancar')
-                    ->label(fn (Pedido $record) => $record->status->proximo()?->getLabel() ?? '—')
-                    ->icon('heroicon-m-arrow-right-circle')
-                    ->color('success')
-                    ->visible(fn (Pedido $record) => $record->status->proximo() !== null)
-                    ->requiresConfirmation(fn (Pedido $record) => $record->status === StatusPedido::Orcamento)
-                    ->action(function (Pedido $record, FinalizarPedido $servico) {
-                        if ($proximo = $record->status->proximo()) {
-                            $servico->mudarStatus($record, $proximo);
+                AcoesDeEntrega::entregar(),
 
-                            Notification::make()
-                                ->title($record->identificacao.' → '.$proximo->getLabel())
-                                ->success()
-                                ->send();
-                        }
-                    }),
+                AcoesDeEntrega::alterarEntrega()->iconButton(),
             ])
             ->emptyStateHeading('Nenhuma encomenda em aberto')
             ->emptyStateDescription('Tudo entregue por aqui.')

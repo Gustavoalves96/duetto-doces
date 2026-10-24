@@ -10,10 +10,20 @@ use App\Filament\Resources\Produtos\Pages\ListProdutos;
 use App\Filament\Resources\Receitas\Pages\ListReceitas;
 use App\Filament\Widgets\EncomendasDaSemana;
 use App\Filament\Widgets\FaturamentoDiario;
+use App\Filament\Widgets\Relatorios\Demonstrativo;
+use App\Filament\Widgets\Relatorios\DespesasPorCategoria;
+use App\Filament\Widgets\Relatorios\DestinoDoFaturamento;
+use App\Filament\Widgets\Relatorios\DinheiroEmEstoque;
+use App\Filament\Widgets\Relatorios\FaturamentoNoPeriodo;
+use App\Filament\Widgets\Relatorios\FaturamentoPorProduto;
+use App\Filament\Widgets\Relatorios\MargemPorProduto;
+use App\Filament\Widgets\Relatorios\ResumoDoPeriodo;
 use App\Filament\Widgets\ResumoDoMes;
 use App\Models\Produto;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Filament\Pages\Dashboard;
+use Filament\Widgets\ChartWidget;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -79,14 +89,42 @@ it('aplica a máscara de telefone no cadastro de cliente', function () {
         ->and($html)->toContain('(99) 99999-9999');
 });
 
-it('mostra os totais do período na página de relatórios', function () {
-    $dados = Livewire::test(Relatorios::class)->instance()->getDadosProperty();
+it('passa o período da página para os gráficos de relatório', function () {
+    $pagina = Livewire::test(Relatorios::class)->instance();
 
-    expect($dados['resumo']['pedidos'])->toBeGreaterThan(0)
-        ->and((float) $dados['resumo']['faturamento_bruto'])->toBeGreaterThan(0)
-        ->and($dados['produtos'])->not->toBeEmpty()
-        ->and($dados['despesas'])->not->toBeEmpty()
-        ->and((float) $dados['estoque']['total'])->toBeGreaterThan(0);
+    expect($pagina->getWidgetData())->toBe([
+        'de' => now()->startOfMonth()->toDateString(),
+        'ate' => now()->endOfMonth()->toDateString(),
+    ]);
+});
+
+it('desenha os gráficos de relatório com os dados de exemplo', function (string $widget) {
+    $periodo = ['de' => now()->startOfMonth()->toDateString(), 'ate' => now()->endOfMonth()->toDateString()];
+
+    $componente = Livewire::test($widget, $periodo)->assertOk();
+
+    // gráfico com dados tem canvas; sem dados mostraria o estado vazio
+    if (is_subclass_of($widget, ChartWidget::class)) {
+        $componente->assertSeeHtml('<canvas');
+    }
+})->with([
+    ResumoDoPeriodo::class,
+    DestinoDoFaturamento::class,
+    FaturamentoPorProduto::class,
+    MargemPorProduto::class,
+    DespesasPorCategoria::class,
+    FaturamentoNoPeriodo::class,
+    Demonstrativo::class,
+    DinheiroEmEstoque::class,
+]);
+
+it('não mostra os gráficos de relatório no dashboard', function () {
+    $doDashboard = collect(Filament::getWidgets())
+        ->map(fn ($widget) => is_string($widget) ? $widget : $widget->widget);
+
+    expect($doDashboard)->toContain(ResumoDoMes::class)
+        ->and($doDashboard->filter(fn (string $classe) => str_starts_with($classe, 'App\\Filament\\Widgets\\Relatorios\\')))
+        ->toBeEmpty();
 });
 
 it('nao deixa nenhum produto com estoque negativo no seed', function () {
