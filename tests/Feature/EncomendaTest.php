@@ -119,6 +119,24 @@ it('marca a encomenda como entregue direto da listagem', function () {
         ->and($pedido->jaBaixouEstoque())->toBeTrue();
 });
 
+it('pede confirmação antes de marcar como entregue', function () {
+    $pedido = encomendaAEntregar(produtoParaEncomenda());
+
+    Livewire::test(ListPedidos::class)
+        ->mountAction(TestAction::make('entregar')->table($pedido))
+        ->assertActionMounted(TestAction::make('entregar')->table($pedido));
+
+    expect($pedido->refresh()->status)->toBe(StatusPedido::Confirmado);
+});
+
+it('dá nome ao botão que vira só ícone em telas menores', function () {
+    encomendaAEntregar(produtoParaEncomenda());
+
+    Livewire::test(ListPedidos::class)
+        ->loadTable()
+        ->assertSeeHtml('aria-label="Entregar"');
+});
+
 it('volta uma encomenda entregue para a entregar sem mexer no estoque', function () {
     $produto = produtoParaEncomenda();
     $pedido = encomendaAEntregar($produto, ['status' => StatusPedido::Entregue]);

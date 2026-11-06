@@ -1,10 +1,12 @@
 <?php
 
+use App\Filament\Pages\Auth\EditarPerfil;
 use App\Filament\Pages\Relatorios;
 use App\Filament\Resources\Clientes\Pages as Clientes;
 use App\Filament\Resources\Compras\Pages as Compras;
 use App\Filament\Resources\Despesas\Pages as Despesas;
 use App\Filament\Resources\Insumos\Pages as Insumos;
+use App\Filament\Resources\Movimentacoes\MovimentacaoResource;
 use App\Filament\Resources\Movimentacoes\Pages as Movimentacoes;
 use App\Filament\Resources\Pedidos\Pages as Pedidos;
 use App\Filament\Resources\Produtos\Pages as Produtos;
@@ -13,7 +15,6 @@ use App\Filament\Widgets\EncomendasDaSemana;
 use App\Filament\Widgets\FaturamentoDiario;
 use App\Filament\Widgets\ResumoDoMes;
 use App\Models\User;
-use Filament\Auth\Pages\EditProfile;
 use Filament\Pages\Dashboard;
 use Livewire\Livewire;
 
@@ -72,5 +73,37 @@ it('abre a página de relatórios', function () {
 });
 
 it('tem página de perfil para trocar a senha', function () {
-    Livewire::test(EditProfile::class)->assertOk();
+    Livewire::test(EditarPerfil::class)->assertOk();
+});
+
+it('indica ao navegador o que cada campo do perfil guarda', function () {
+    Livewire::test(EditarPerfil::class)
+        ->assertSeeHtml('autocomplete="name"')
+        ->assertSeeHtml('autocomplete="username"');
+});
+
+it('usa uma URL limpa para as movimentações', function () {
+    expect(MovimentacaoResource::getUrl())->toEndWith('/admin/movimentacoes');
+
+    get('/admin/movimentacoes')->assertSuccessful();
+});
+
+it('tem em português os textos que o Filament não traduz', function (string $chave) {
+    expect(__($chave))->not->toBe($chave);
+})->with([
+    'filament::components/badge.actions.delete.label',
+    'filament::components/breadcrumbs.label',
+    'filament::components/loading-section.label',
+    'filament::components/section.actions.collapse.label',
+    'filament::components/section.actions.expand.label',
+    'filament::components/tabs.label',
+    'filament-forms::components.select.actions.clear.label',
+    'filament-forms::components.select.actions.remove_option.label',
+    'filament-forms::components.select.search_label',
+    'filament-panels::auth/pages/edit-profile.notifications.throttled.title',
+    'filament-panels::auth/pages/edit-profile.notifications.throttled.body',
+]);
+
+it('não mostra em inglês o rótulo do filtro avançado', function () {
+    expect(__('filament-query-builder::query-builder.label'))->toBe('Filtro avançado');
 });

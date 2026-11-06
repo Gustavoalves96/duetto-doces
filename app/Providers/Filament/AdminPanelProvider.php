@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\EditarPerfil;
 use App\Filament\Widgets\EncomendasDaSemana;
 use App\Filament\Widgets\FaturamentoDiario;
 use App\Filament\Widgets\ResumoDoMes;
@@ -42,7 +43,7 @@ class AdminPanelProvider extends PanelProvider
              */
             ->spa(hasPrefetching: true)
             // sem isso não existe tela de trocar a senha em lugar nenhum
-            ->profile(isSimple: false)
+            ->profile(EditarPerfil::class, isSimple: false)
             ->brandName('Duetto Doces')
             // URL relativa de propósito: o panel() roda no register(), antes do
             // boot() onde o forceScheme('https') é aplicado, então um asset()

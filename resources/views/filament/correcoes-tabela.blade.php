@@ -22,4 +22,8 @@
             {!! $cabecalho !!}.{!! $classe($bp, 'hidden') !!} { display: none; }
         }
     @endforeach
+
+    /* sem linha selecionada, o grupo de ações em massa fica oculto, mas o
+       contêiner ainda ocupa altura e joga a busca para a linha de baixo no celular */
+    .fi-ta-header-toolbar > .fi-ta-actions:not(:has(> :not([style*="display: none"]))) { display: none; }
 </style>

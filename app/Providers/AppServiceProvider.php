@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Filament\Actions\Action;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,5 +33,17 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
+
+        /*
+         * Bug do Filament 5: com ->labeledFrom(), o aria-label nulo do botão
+         * com texto vence o rótulo na versão só com ícone, e o botão fica sem
+         * nome para leitor de tela. Um valor explícito vence esse merge.
+         */
+        Action::configureUsing(fn (Action $action) => $action->extraAttributes(
+            fn (Action $action): array => $action->hasLabeledFromBreakpoint()
+                ? ['aria-label' => e(strip_tags((string) $action->getLabel()))]
+                : [],
+            merge: true,
+        ));
     }
 }

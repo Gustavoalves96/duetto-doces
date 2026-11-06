@@ -20,6 +20,9 @@ class MovimentacaoResource extends Resource
 {
     protected static ?string $model = Movimentacao::class;
 
+    // sem isso o Filament pluraliza em inglês: /movimentacoes/movimentacaos
+    protected static ?string $slug = 'movimentacoes';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
     protected static string|UnitEnum|null $navigationGroup = 'Estoque';

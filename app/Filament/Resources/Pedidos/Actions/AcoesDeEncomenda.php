@@ -29,6 +29,10 @@ class AcoesDeEncomenda
             ->color('success')
             ->button()
             ->visible(fn (Pedido $record) => self::encomendaAberta($record))
+            ->requiresConfirmation()
+            ->modalHeading('Marcar como entregue')
+            ->modalDescription(fn (Pedido $record) => $record->identificacao.' sai da lista de entregas pendentes.')
+            ->modalSubmitActionLabel('Marcar como entregue')
             ->action(function (Pedido $record, FinalizarPedido $servico) {
                 $pedido = $servico->mudarStatus($record, StatusPedido::Entregue);
 
