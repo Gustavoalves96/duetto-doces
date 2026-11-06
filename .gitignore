@@ -39,3 +39,6 @@ Thumbs.db
 
 # output estatico montado pelo build da Vercel (so os assets, sem o index.php)
 /.vercel-static
+
+# mapa do projeto gerado pelo graphify (regenerável)
+/graphify-out
