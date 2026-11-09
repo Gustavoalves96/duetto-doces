@@ -16,17 +16,23 @@ use InvalidArgumentException;
  *
  * É aqui que o custo do brownie aparece. Ele nunca é digitado: sai da soma
  * dos insumos baixados, pelo custo médio do momento da fornada.
+ *
+ * Parte da fornada pode levar recheio (ex.: 7 com Nutella) e sair como outro
+ * produto. Cada unidade leva a mesma fatia da massa; a recheada soma o recheio.
  */
 class ExecutarProducao
 {
     /**
      * @param  string  $multiplicador  0.5 = meia fornada, 3 = três fornadas.
+     * @param  array<int, string|null>  $recheios  [receita_recheio_id => unidades recheadas].
+     *                                             O resto da fornada sai no produto da ficha.
      */
     public function executar(
         Receita $receita,
         string $multiplicador = '1',
         ?string $data = null,
         ?string $observacoes = null,
+        array $recheios = [],
     ): Producao {
         $multiplicador = Decimal::quantidade($multiplicador);
 
@@ -34,79 +40,160 @@ class ExecutarProducao
             throw new InvalidArgumentException('O multiplicador da fornada precisa ser maior que zero.');
         }
 
-        return DB::transaction(function () use ($receita, $multiplicador, $data, $observacoes) {
+        $recheios = $this->normalizarRecheios($recheios);
+
+        return DB::transaction(function () use ($receita, $multiplicador, $data, $observacoes, $recheios) {
             $receita = Receita::query()->with('itens')->lockForUpdate()->findOrFail($receita->id);
-            $produto = Produto::query()->lockForUpdate()->findOrFail($receita->produto_id);
 
-            $custoTotal = '0';
-
-            // 1. baixa cada insumo e acumula o custo real da fornada
-            foreach ($receita->itens as $item) {
-                $insumo = Insumo::query()->lockForUpdate()->findOrFail($item->insumo_id);
-
-                $baixa = Decimal::quantidade(Decimal::mul($item->quantidade, $multiplicador));
-                $custoLinha = Decimal::mul($baixa, $insumo->custo_medio);
-
-                // estoque negativo é permitido de propósito: eles usam a farinha
-                // antes de lançar a compra, e travar isso mata o uso do sistema
-                $insumo->forceFill([
-                    'estoque_atual' => Decimal::quantidade(
-                        Decimal::sub($insumo->estoque_atual, $baixa)
-                    ),
-                ])->save();
-
-                $custoTotal = Decimal::soma($custoTotal, $custoLinha);
-
-                $movimentacoesInsumo[] = [
-                    'insumo' => $insumo,
-                    'quantidade' => $baixa,
-                    'custo_unitario' => $insumo->custo_medio,
-                ];
-            }
-
-            $custoTotal = Decimal::dinheiro($custoTotal);
             $quantidadeProduzida = Decimal::quantidade(
                 Decimal::mul($receita->rendimento, $multiplicador)
             );
 
-            // 2. registra a produção
+            $variacoes = $receita->recheios()->whereKey(array_keys($recheios))->get();
+
+            if ($variacoes->count() !== count($recheios)) {
+                throw new InvalidArgumentException('Recheio não pertence a esta ficha.');
+            }
+
+            $unidadesRecheadas = Decimal::somaLista($recheios);
+
+            if (Decimal::maior($unidadesRecheadas, $quantidadeProduzida)) {
+                throw new InvalidArgumentException(
+                    'A fornada rende '.Decimal::paraBrEnxuto($quantidadeProduzida)
+                    .' unidades; não dá para rechear '.Decimal::paraBrEnxuto($unidadesRecheadas).'.'
+                );
+            }
+
+            $custoMassa = '0';
+            $movimentacoesInsumo = [];
+
+            // 1. baixa cada insumo da massa e acumula o custo real da fornada
+            foreach ($receita->itens as $item) {
+                $mov = $this->baixarInsumo(
+                    $item->insumo_id,
+                    Decimal::quantidade(Decimal::mul($item->quantidade, $multiplicador)),
+                );
+                $movimentacoesInsumo[] = $mov;
+                $custoMassa = Decimal::soma($custoMassa, $mov['custo']);
+            }
+
+            $custoMassa = Decimal::dinheiro($custoMassa);
+            $custoTotal = $custoMassa;
+            $sobra = $quantidadeProduzida;
+            $massaRestante = $custoMassa;
+            $lotes = [];
+
+            // 2. cada recheio leva sua fatia da massa + o próprio recheio
+            foreach ($variacoes as $variacao) {
+                $unidades = $recheios[$variacao->id];
+
+                $mov = $this->baixarInsumo(
+                    $variacao->insumo_id,
+                    Decimal::quantidade(Decimal::mul($variacao->quantidade, $unidades)),
+                );
+                $movimentacoesInsumo[] = $mov;
+
+                $parteMassa = Decimal::div(Decimal::mul($custoMassa, $unidades), $quantidadeProduzida);
+                $massaRestante = Decimal::sub($massaRestante, $parteMassa);
+                $sobra = Decimal::sub($sobra, $unidades);
+                $custoTotal = Decimal::soma($custoTotal, $mov['custo']);
+
+                $lotes[] = [$variacao->produto_id, $unidades, Decimal::soma($parteMassa, $mov['custo'])];
+            }
+
+            // a sobra leva o resto da massa: a soma dos lotes fecha com o custo da fornada
+            if (Decimal::positivo($sobra)) {
+                $lotes[] = [$receita->produto_id, Decimal::quantidade($sobra), $massaRestante];
+            }
+
+            // 3. registra a produção
             $producao = Producao::create([
                 'receita_id' => $receita->id,
                 'data' => $data ?? now()->toDateString(),
                 'multiplicador' => $multiplicador,
                 'quantidade_produzida' => $quantidadeProduzida,
-                'custo_total' => $custoTotal,
+                'custo_total' => Decimal::dinheiro($custoTotal),
                 'observacoes' => $observacoes,
             ]);
 
-            // 3. movimentações de saída dos insumos
-            foreach ($movimentacoesInsumo ?? [] as $mov) {
+            $nomeProduto = Produto::query()->whereKey($receita->produto_id)->value('nome');
+
+            // 4. movimentações de saída dos insumos
+            foreach ($movimentacoesInsumo as $mov) {
                 $mov['insumo']->movimentacoes()->create([
                     'tipo' => TipoMovimentacao::Saida,
                     'quantidade' => $mov['quantidade'],
                     'custo_unitario' => Decimal::custo($mov['custo_unitario']),
-                    'observacao' => 'Produção de '.$produto->nome,
+                    'observacao' => 'Produção de '.$nomeProduto,
                     'origem_id' => $producao->id,
                     'origem_type' => Producao::class,
                 ]);
             }
 
-            // 4. entra o lote no produto, misturando com o estoque anterior
-            $this->misturarLoteNoProduto($produto, $quantidadeProduzida, $custoTotal);
+            // 5. entra cada lote no seu produto, misturando com o estoque anterior
+            foreach ($lotes as [$produtoId, $quantidade, $custoLote]) {
+                $produto = Produto::query()->lockForUpdate()->findOrFail($produtoId);
 
-            $produto->movimentacoes()->create([
-                'tipo' => TipoMovimentacao::Entrada,
-                'quantidade' => $quantidadeProduzida,
-                'custo_unitario' => Decimal::custo(
-                    Decimal::div($custoTotal, $quantidadeProduzida)
-                ),
-                'observacao' => 'Fornada '.$multiplicador.'x de '.$receita->nome_exibicao,
-                'origem_id' => $producao->id,
-                'origem_type' => Producao::class,
-            ]);
+                $this->misturarLoteNoProduto($produto, $quantidade, $custoLote);
+
+                $produto->movimentacoes()->create([
+                    'tipo' => TipoMovimentacao::Entrada,
+                    'quantidade' => $quantidade,
+                    'custo_unitario' => Decimal::custo(Decimal::div($custoLote, $quantidade)),
+                    'observacao' => 'Fornada '.$multiplicador.'x de '.$receita->nome_exibicao,
+                    'origem_id' => $producao->id,
+                    'origem_type' => Producao::class,
+                ]);
+            }
 
             return $producao;
         });
+    }
+
+    /**
+     * Estoque negativo é permitido de propósito: eles usam a farinha antes de
+     * lançar a compra, e travar isso mata o uso do sistema.
+     *
+     * @return array{insumo: Insumo, quantidade: string, custo_unitario: string, custo: string}
+     */
+    private function baixarInsumo(int $insumoId, string $baixa): array
+    {
+        $insumo = Insumo::query()->lockForUpdate()->findOrFail($insumoId);
+
+        $insumo->forceFill([
+            'estoque_atual' => Decimal::quantidade(Decimal::sub($insumo->estoque_atual, $baixa)),
+        ])->save();
+
+        return [
+            'insumo' => $insumo,
+            'quantidade' => $baixa,
+            'custo_unitario' => (string) $insumo->custo_medio,
+            'custo' => Decimal::mul($baixa, $insumo->custo_medio),
+        ];
+    }
+
+    /**
+     * Tira zeros e vazios, recusa negativos.
+     *
+     * @return array<int, string>
+     */
+    private function normalizarRecheios(array $recheios): array
+    {
+        $limpos = [];
+
+        foreach ($recheios as $id => $unidades) {
+            $unidades = Decimal::quantidade($unidades ?: '0');
+
+            if (Decimal::negativo($unidades)) {
+                throw new InvalidArgumentException('A quantidade recheada não pode ser negativa.');
+            }
+
+            if (Decimal::positivo($unidades)) {
+                $limpos[(int) $id] = $unidades;
+            }
+        }
+
+        return $limpos;
     }
 
     /**
@@ -141,24 +228,47 @@ class ExecutarProducao
     }
 
     /**
-     * Insumos que ficariam negativos com esse multiplicador.
+     * Insumos que ficariam negativos com esse multiplicador e esses recheios.
      * Só para avisar na tela — a produção acontece de qualquer jeito.
      *
+     * @param  array<int, string|null>  $recheios  [receita_recheio_id => unidades]
      * @return array<int, array{nome: string, falta: string, unidade: string}>
      */
-    public function insumosInsuficientes(Receita $receita, string $multiplicador = '1'): array
+    public function insumosInsuficientes(Receita $receita, string $multiplicador = '1', array $recheios = []): array
     {
-        $faltando = [];
+        // soma por insumo: a Nutella pode estar na massa e no recheio
+        $necessarios = [];
 
         foreach ($receita->itens as $item) {
-            $necessario = Decimal::mul($item->quantidade, $multiplicador);
-            $disponivel = (string) $item->insumo->estoque_atual;
+            $necessarios[$item->insumo_id] = [$item->insumo, Decimal::soma(
+                $necessarios[$item->insumo_id][1] ?? '0',
+                Decimal::mul($item->quantidade, $multiplicador),
+            )];
+        }
+
+        foreach ($receita->recheios as $recheio) {
+            $unidades = $recheios[$recheio->id] ?? null;
+
+            if (! $unidades || ! Decimal::positivo($unidades)) {
+                continue;
+            }
+
+            $necessarios[$recheio->insumo_id] = [$recheio->insumo, Decimal::soma(
+                $necessarios[$recheio->insumo_id][1] ?? '0',
+                Decimal::mul($recheio->quantidade, $unidades),
+            )];
+        }
+
+        $faltando = [];
+
+        foreach ($necessarios as [$insumo, $necessario]) {
+            $disponivel = (string) $insumo->estoque_atual;
 
             if (Decimal::menor($disponivel, $necessario)) {
                 $faltando[] = [
-                    'nome' => $item->insumo->nome,
+                    'nome' => $insumo->nome,
                     'falta' => Decimal::quantidade(Decimal::sub($necessario, $disponivel)),
-                    'unidade' => $item->insumo->unidade_base->sufixo(),
+                    'unidade' => $insumo->unidade_base->sufixo(),
                 ];
             }
         }

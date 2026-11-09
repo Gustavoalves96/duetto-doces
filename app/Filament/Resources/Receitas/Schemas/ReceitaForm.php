@@ -5,8 +5,10 @@ namespace App\Filament\Resources\Receitas\Schemas;
 use App\Filament\Forms\Components\CampoDinheiro;
 use App\Filament\Forms\Components\CampoQuantidade;
 use App\Models\Insumo;
+use App\Models\Produto;
 use App\Models\Receita;
 use App\Support\Decimal;
+use Closure;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -118,6 +120,63 @@ class ReceitaForm
                                             Decimal::mul(Decimal::deBr($get('quantidade')), $insumo->custo_medio)
                                         );
                                     }),
+                            ]),
+                    ]),
+
+                Section::make('Recheios')
+                    ->description('Opcional. Parte da fornada pode levar recheio e sair como outro produto (ex.: Brownie com Nutella). Quantos de cada você escolhe na hora de produzir.')
+                    ->collapsible()
+                    ->schema([
+                        Repeater::make('recheios')
+                            ->relationship()
+                            ->hiddenLabel()
+                            ->columns(['default' => 1, 'md' => 2, 'xl' => 12])
+                            ->defaultItems(0)
+                            ->addActionLabel('Adicionar recheio')
+                            ->itemLabel(fn (array $state) => Produto::find($state['produto_id'] ?? null)?->nome)
+                            ->schema([
+                                Select::make('produto_id')
+                                    ->label('Sai como')
+                                    ->relationship('produto', 'nome')
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->distinct()
+                                    ->rules([
+                                        fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get) {
+                                            if ((string) $value === (string) $get('../../produto_id')) {
+                                                $fail('O recheado precisa ser outro produto, não o da ficha.');
+                                            }
+                                        },
+                                    ])
+                                    ->columnSpan(['default' => 1, 'md' => 2, 'xl' => 5])
+                                    ->validationMessages([
+                                        'required' => 'Escolha o produto recheado.',
+                                        'distinct' => 'Este produto já está nos recheios.',
+                                    ])
+                                    ->createOptionForm([
+                                        TextInput::make('nome')->label('Nome')->required()->maxLength(255),
+                                        CampoDinheiro::make('preco_venda')
+                                            ->label('Preço de venda')->maiorQueZero()->required(),
+                                    ]),
+
+                                Select::make('insumo_id')
+                                    ->label('Recheio')
+                                    ->relationship('insumo', 'nome')
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->live()
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 4])
+                                    ->validationMessages(['required' => 'Escolha o insumo do recheio.']),
+
+                                CampoQuantidade::make('quantidade')
+                                    ->label('Por unidade')
+                                    ->maiorQueZero()
+                                    ->required()
+                                    ->suffix(fn (Get $get) => Insumo::find($get('insumo_id'))?->unidade_base->sufixo())
+                                    ->columnSpan(['default' => 1, 'md' => 1, 'xl' => 3])
+                                    ->validationMessages(['required' => 'Informe quanto recheio vai em cada unidade.']),
                             ]),
                     ]),
 

@@ -34,6 +34,11 @@ class Receita extends Model
         return $this->hasMany(ReceitaItem::class);
     }
 
+    public function recheios(): HasMany
+    {
+        return $this->hasMany(ReceitaRecheio::class);
+    }
+
     public function producoes(): HasMany
     {
         return $this->hasMany(Producao::class);

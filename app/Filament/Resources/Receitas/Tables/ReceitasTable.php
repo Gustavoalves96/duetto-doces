@@ -15,10 +15,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
+use InvalidArgumentException;
 
 class ReceitasTable
 {
@@ -119,8 +121,18 @@ class ReceitasTable
                             ->helperText('0,5 = meia fornada · 1 = uma fornada · 3 = três fornadas')
                             ->validationMessages(['required' => 'Informe o multiplicador da fornada.']),
 
+                        // um campo por recheio da ficha; o que não for recheado sai no produto da ficha
+                        ...$record->recheios->map(fn ($recheio) => CampoQuantidade::make('recheios.'.$recheio->id)
+                            ->label('Quantos com '.$recheio->insumo->nome.' ('.$recheio->produto->nome.')')
+                            ->inteiro()
+                            ->naoNegativo()
+                            ->default('0')
+                            ->suffix('un')
+                            ->live(onBlur: true)
+                        )->all(),
+
                         Text::make(fn (Get $get) => new HtmlString(
-                            self::previsao($record, (string) $get('multiplicador'))
+                            self::previsao($record, (string) $get('multiplicador'), (array) ($get('recheios') ?? []))
                         )),
 
                         DatePicker::make('data')
@@ -138,23 +150,31 @@ class ReceitasTable
                     ])
                     ->action(function (Receita $record, array $data, ExecutarProducao $servico) {
                         $multiplicador = (string) $data['multiplicador'];
+                        $recheios = (array) ($data['recheios'] ?? []);
 
                         // avisa, mas não bloqueia: estoque negativo é aceitável aqui
-                        $faltando = $servico->insumosInsuficientes($record, $multiplicador);
+                        $faltando = $servico->insumosInsuficientes($record, $multiplicador, $recheios);
 
-                        $producao = $servico->executar(
-                            $record,
-                            $multiplicador,
-                            $data['data'] ?? null,
-                            $data['observacoes'] ?? null,
-                        );
+                        try {
+                            $producao = $servico->executar(
+                                $record,
+                                $multiplicador,
+                                $data['data'] ?? null,
+                                $data['observacoes'] ?? null,
+                                $recheios,
+                            );
+                        } catch (InvalidArgumentException $e) {
+                            Notification::make()->title('Produção não registrada')->body($e->getMessage())->danger()->send();
+
+                            throw new Halt;
+                        }
 
                         Notification::make()
                             ->title('Produção registrada')
-                            ->body(
-                                Decimal::paraBrEnxuto($producao->quantidade_produzida).' unidades a '
-                                .Decimal::paraReal($producao->custoUnitarioLote()).' cada.'
-                            )
+                            ->body($producao->movimentacoes()->deProdutos()->with('produto')->get()
+                                ->map(fn ($mov) => Decimal::paraBrEnxuto($mov->quantidade).' '.$mov->produto->nome
+                                    .' a '.Decimal::paraReal($mov->custo_unitario).' cada')
+                                ->implode(' · '))
                             ->success()
                             ->send();
 
@@ -188,7 +208,7 @@ class ReceitasTable
     }
 
     /** Prévia do que a fornada vai consumir e custar, com os preços de hoje. */
-    private static function previsao(Receita $receita, string $multiplicador): string
+    private static function previsao(Receita $receita, string $multiplicador, array $recheios = []): string
     {
         // chega mascarado, vindo direto do campo
         $multiplicador = Decimal::deBr($multiplicador);
@@ -199,28 +219,62 @@ class ReceitasTable
         $linhas = [];
         $custo = '0';
 
-        foreach ($receita->itens as $item) {
-            $necessario = Decimal::mul($item->quantidade, $multiplicador);
-            $sobra = Decimal::sub($item->insumo->estoque_atual, $necessario);
-            $custo = Decimal::soma($custo, Decimal::mul($necessario, $item->insumo->custo_medio));
-
+        $linha = function ($insumo, string $necessario) use (&$linhas) {
+            $sobra = Decimal::sub($insumo->estoque_atual, $necessario);
             $cor = Decimal::negativo($sobra) ? 'color:#dc2626;font-weight:600' : 'color:#6b7280';
 
             $linhas[] = '<li style="'.$cor.'">'
-                .e($item->insumo->nome).': '
-                .Decimal::paraBr($necessario, 3).' '.$item->insumo->unidade_base->sufixo()
+                .e($insumo->nome).': '
+                .Decimal::paraBr($necessario, 3).' '.$insumo->unidade_base->sufixo()
                 .' (sobra '.Decimal::paraBr($sobra, 3).')</li>';
+        };
+
+        foreach ($receita->itens as $item) {
+            $necessario = Decimal::mul($item->quantidade, $multiplicador);
+            $custo = Decimal::soma($custo, Decimal::mul($necessario, $item->insumo->custo_medio));
+            $linha($item->insumo, $necessario);
         }
 
         $unidades = Decimal::mul($receita->rendimento, $multiplicador);
-        $custoUnitario = Decimal::positivo($unidades) ? Decimal::div($custo, $unidades) : '0';
+        $custoMassaUn = Decimal::positivo($unidades) ? Decimal::div($custo, $unidades) : '0';
+        $sobraUnidades = $unidades;
+        $saidas = [];
+
+        foreach ($receita->recheios as $recheio) {
+            $qtd = Decimal::deBr($recheios[$recheio->id] ?? '0');
+
+            if (! Decimal::positivo($qtd)) {
+                continue;
+            }
+
+            $necessario = Decimal::mul($recheio->quantidade, $qtd);
+            $custoRecheioUn = Decimal::mul($recheio->quantidade, $recheio->insumo->custo_medio);
+            $custo = Decimal::soma($custo, Decimal::mul($necessario, $recheio->insumo->custo_medio));
+            $sobraUnidades = Decimal::sub($sobraUnidades, $qtd);
+            $linha($recheio->insumo, $necessario);
+
+            $saidas[] = [$qtd, $recheio->produto->nome, Decimal::soma($custoMassaUn, $custoRecheioUn)];
+        }
+
+        if (Decimal::negativo($sobraUnidades)) {
+            return '<p class="text-sm" style="color:#dc2626;font-weight:600">A fornada rende '
+                .Decimal::paraBrEnxuto($unidades).' unidades; os recheios passam disso.</p>';
+        }
+
+        if (Decimal::positivo($sobraUnidades)) {
+            array_unshift($saidas, [$sobraUnidades, $receita->produto?->nome ?? 'produto', $custoMassaUn]);
+        }
+
+        $rende = collect($saidas)
+            ->map(fn ($s) => '<li><strong>'.Decimal::paraBrEnxuto($s[0]).' '.e($s[1]).'</strong> a '
+                .'<strong>'.Decimal::paraReal($s[2]).'</strong> cada</li>')
+            ->implode('');
 
         return '<div class="text-sm">'
             .'<p style="font-weight:600;margin-bottom:.25rem">Vai consumir</p>'
             .'<ul style="margin:0 0 .5rem 1rem;list-style:disc">'.implode('', $linhas).'</ul>'
-            .'<p>Rende <strong>'.Decimal::paraBr($unidades, 3).' un</strong> a '
-            .'<strong>'.Decimal::paraReal($custoUnitario).'</strong> cada '
-            .'(total '.Decimal::paraReal($custo).')</p>'
+            .'<p style="font-weight:600;margin-bottom:.25rem">Rende (total '.Decimal::paraReal($custo).')</p>'
+            .'<ul style="margin:0 0 0 1rem;list-style:disc">'.$rende.'</ul>'
             .'</div>';
     }
 }

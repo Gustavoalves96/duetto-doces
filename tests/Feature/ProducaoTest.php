@@ -178,3 +178,76 @@ it('nao deixa o custo do produto ser digitado a mao', function () {
 
     expect((string) $outro->refresh()->custo_unitario)->toBe('0.0000');
 });
+
+/**
+ * Recheio: Nutella a R$ 0,10/g, 20 g por brownie = R$ 2,00 a mais por unidade.
+ */
+function comNutella(Receita $receita): array
+{
+    $nutella = Insumo::create([
+        'nome' => 'Nutella', 'unidade_base' => 'g',
+        'estoque_atual' => '1000', 'custo_medio' => '0.1000', 'estoque_minimo' => '0',
+    ]);
+
+    $produtoNutella = Produto::create(['nome' => 'Brownie com Nutella', 'preco_venda' => '12.00']);
+
+    $recheio = $receita->recheios()->create([
+        'produto_id' => $produtoNutella->id, 'insumo_id' => $nutella->id, 'quantidade' => '20',
+    ]);
+
+    return compact('nutella', 'produtoNutella', 'recheio');
+}
+
+it('divide a fornada entre o produto da ficha e o recheado', function () {
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    ['nutella' => $nutella, 'produtoNutella' => $produtoNutella, 'recheio' => $recheio] = comNutella($receita);
+
+    $producao = app(ExecutarProducao::class)->executar($receita, '1', recheios: [$recheio->id => '7']);
+
+    // massa R$ 30 + Nutella 140 g * 0,10 = R$ 14
+    expect((string) $producao->custo_total)->toBe('44.00')
+        ->and((string) $producao->quantidade_produzida)->toBe('20.000')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('13.000')
+        ->and((string) $produto->custo_unitario)->toBe('1.5000')
+        ->and((string) $produtoNutella->refresh()->estoque_atual)->toBe('7.000')
+        ->and((string) $produtoNutella->custo_unitario)->toBe('3.5000')
+        ->and((string) $nutella->refresh()->estoque_atual)->toBe('860.000')
+        ->and($producao->movimentacoes()->count())->toBe(5); // 3 saídas de insumo + 2 entradas
+});
+
+it('recusa rechear mais unidades do que a fornada rende e nao grava nada', function () {
+    ['produto' => $produto, 'chocolate' => $chocolate, 'receita' => $receita] = cenarioBrownie();
+    ['recheio' => $recheio] = comNutella($receita);
+
+    expect(fn () => app(ExecutarProducao::class)->executar($receita, '1', recheios: [$recheio->id => '21']))
+        ->toThrow(InvalidArgumentException::class);
+
+    expect((string) $chocolate->refresh()->estoque_atual)->toBe('5000.000')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('0.000');
+});
+
+it('nao da entrada no produto da ficha quando a fornada inteira e recheada', function () {
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    ['produtoNutella' => $produtoNutella, 'recheio' => $recheio] = comNutella($receita);
+
+    app(ExecutarProducao::class)->executar($receita, '1', recheios: [$recheio->id => '20']);
+
+    expect((string) $produto->refresh()->estoque_atual)->toBe('0.000')
+        ->and($produto->movimentacoes()->count())->toBe(0)
+        ->and((string) $produtoNutella->refresh()->estoque_atual)->toBe('20.000')
+        ->and((string) $produtoNutella->custo_unitario)->toBe('3.5000');
+});
+
+it('ignora recheio com zero e avisa falta de recheio', function () {
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    ['recheio' => $recheio] = comNutella($receita);
+
+    $servico = app(ExecutarProducao::class);
+
+    expect($servico->insumosInsuficientes($receita->fresh(), '1', [$recheio->id => '60']))
+        ->toHaveCount(1); // 60 * 20 g = 1200 g, só tem 1000
+
+    $servico->executar($receita, '1', recheios: [$recheio->id => '0']);
+
+    expect((string) $produto->refresh()->estoque_atual)->toBe('20.000');
+});
