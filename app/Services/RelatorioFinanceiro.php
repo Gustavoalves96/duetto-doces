@@ -86,7 +86,8 @@ class RelatorioFinanceiro
 
     /**
      * Margem de contribuição por produto: qual sabor realmente sustenta o negócio.
-     * A taxa da operadora é rateada por participação no faturamento.
+     * O desconto é rateado pelos itens do próprio pedido; a taxa da operadora,
+     * por participação no faturamento do período.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -97,6 +98,8 @@ class RelatorioFinanceiro
 
         $this->pedidosDoPeriodo($de, $ate)->chunk(200, function ($lote) use (&$linhas, &$totalReceita) {
             foreach ($lote as $pedido) {
+                $subtotal = $pedido->subtotal();
+
                 foreach ($pedido->itens as $item) {
                     $id = $item->produto_id;
 
@@ -108,10 +111,17 @@ class RelatorioFinanceiro
                         'custo' => '0',
                     ];
 
+                    // o desconto é do pedido: cada item leva a parte que pesa nele,
+                    // senão a soma por produto não fecha com o faturamento do período
+                    $receitaItem = Decimal::sub($item->totalLinha(), Decimal::mul(
+                        $pedido->desconto,
+                        Decimal::div($item->totalLinha(), $subtotal),
+                    ));
+
                     $linhas[$id]['quantidade'] = Decimal::soma($linhas[$id]['quantidade'], $item->quantidade);
-                    $linhas[$id]['receita'] = Decimal::soma($linhas[$id]['receita'], $item->totalLinha());
+                    $linhas[$id]['receita'] = Decimal::soma($linhas[$id]['receita'], $receitaItem);
                     $linhas[$id]['custo'] = Decimal::soma($linhas[$id]['custo'], $item->custoLinha());
-                    $totalReceita = Decimal::soma($totalReceita, $item->totalLinha());
+                    $totalReceita = Decimal::soma($totalReceita, $receitaItem);
                 }
             }
         });

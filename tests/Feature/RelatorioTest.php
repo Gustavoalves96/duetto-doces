@@ -246,6 +246,32 @@ it('poe a encomenda no dia da entrega na serie diaria', function () {
         ->and($serie[now()->subDays(5)->toDateString()])->toBe('0.00');
 });
 
+it('rateia o desconto do pedido na margem por produto', function () {
+    $brownie = produtoCom('Brownie', '1.5000', '8.00');
+    $cookie = produtoCom('Cookie', '4.0000', '5.00');
+
+    // 10 brownies (80) + 4 cookies (20) = 100, com 10 de desconto no pedido
+    $pedido = Pedido::create([
+        'tipo' => TipoPedido::Avulsa,
+        'status' => StatusPedido::Entregue,
+        'data' => now()->toDateString(),
+        'desconto' => '10.00',
+    ]);
+    $pedido->itens()->create(['produto_id' => $brownie->id, 'quantidade' => '10', 'preco_unitario' => '8.00']);
+    $pedido->itens()->create(['produto_id' => $cookie->id, 'quantidade' => '4', 'preco_unitario' => '5.00']);
+    app(FinalizarPedido::class)->efetivar($pedido);
+
+    $linhas = collect($this->relatorio->margemPorProduto($this->de, $this->ate))->keyBy('nome');
+
+    // brownie leva 8 do desconto, cookie leva 2
+    expect($linhas['Brownie']['receita'])->toBe('72.00')
+        ->and($linhas['Brownie']['margem'])->toBe('57.00')
+        ->and($linhas['Cookie']['receita'])->toBe('18.00')
+        ->and($linhas['Cookie']['margem'])->toBe('2.00')
+        // a soma por produto fecha com o total do período
+        ->and($this->relatorio->resumo($this->de, $this->ate)['margem_contribuicao'])->toBe('59.00');
+});
+
 it('desconta do lucro o que estragou', function () {
     $brownie = produtoCom('Brownie', '1.5000', '8.00');
     vender($brownie, '10'); // margem de contribuição: 80 - 15 = 65
