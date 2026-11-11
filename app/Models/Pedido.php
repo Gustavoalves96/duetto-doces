@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Support\Carbon;
 
 class Pedido extends Model
 {
@@ -59,13 +60,19 @@ class Pedido extends Model
         return $this->morphMany(Movimentacao::class, 'origem');
     }
 
-    /** Pedidos que entram no faturamento: tudo menos orçamento e cancelado. */
+    /** Pedidos que comprometem produto: tudo menos orçamento e cancelado. */
     public function scopeContabilizados(Builder $query): Builder
     {
         return $query->whereNotIn('status', [
             StatusPedido::Orcamento->value,
             StatusPedido::Cancelado->value,
         ]);
+    }
+
+    /** Dia em que a venda entra no relatório: a entrega; venda avulsa, o pedido. */
+    public function dataFaturamento(): Carbon
+    {
+        return $this->data_entrega ?? $this->data;
     }
 
     public function scopeNoPeriodo(Builder $query, string $de, string $ate): Builder

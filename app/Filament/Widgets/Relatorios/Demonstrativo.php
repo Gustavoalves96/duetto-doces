@@ -25,7 +25,7 @@ class Demonstrativo extends Widget
 
         return [
             'linhas' => [
-                ['Faturamento bruto', $resumo['faturamento_bruto'], 'Soma dos itens, já com desconto', null],
+                ['Faturamento bruto', $resumo['faturamento_bruto'], 'Pedidos entregues no período, já com desconto', null],
                 ['(−) Maquininha e delivery', $resumo['taxas'], 'O que a operadora fica', 'saida'],
                 ['(=) Faturamento líquido', $resumo['faturamento_liquido'], 'O que realmente entrou na conta', 'subtotal'],
                 ['(−) CMV', $resumo['cmv'], 'Custo congelado dos produtos vendidos', 'saida'],

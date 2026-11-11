@@ -197,6 +197,54 @@ it('soma o valor parado em estoque', function () {
         ->and($estoque['total'])->toBe('1700.00');
 });
 
+it('conta a encomenda no mes da entrega, nao no do pedido', function () {
+    $brownie = produtoCom('Brownie', '1.5000', '8.00');
+    $mesPassado = now()->subMonthNoOverflow();
+
+    // pedida no mês passado, entregue hoje
+    vender($brownie, '10', [
+        'tipo' => TipoPedido::Encomenda,
+        'data' => $mesPassado->toDateString(),
+        'data_entrega' => now()->toDateString(),
+    ]);
+
+    $antes = $this->relatorio->resumo($mesPassado->copy()->startOfMonth(), $mesPassado->copy()->endOfMonth());
+
+    expect($this->relatorio->resumo($this->de, $this->ate)['faturamento_bruto'])->toBe('80.00')
+        ->and($antes['faturamento_bruto'])->toBe('0.00');
+});
+
+it('nao conta encomenda que ainda nao foi entregue', function () {
+    $brownie = produtoCom('Brownie', '1.5000', '8.00');
+
+    vender($brownie, '10', [
+        'tipo' => TipoPedido::Encomenda,
+        'status' => StatusPedido::Confirmado,
+        'data_entrega' => now()->toDateString(),
+    ]);
+
+    $resumo = $this->relatorio->resumo($this->de, $this->ate);
+
+    expect($resumo['faturamento_bruto'])->toBe('0.00')
+        ->and($resumo['cmv'])->toBe('0.00')
+        ->and($resumo['pedidos'])->toBe(0);
+});
+
+it('poe a encomenda no dia da entrega na serie diaria', function () {
+    $brownie = produtoCom('Brownie', '1.5000', '8.00');
+
+    vender($brownie, '10', [
+        'tipo' => TipoPedido::Encomenda,
+        'data' => now()->subDays(5)->toDateString(),
+        'data_entrega' => now()->subDays(2)->toDateString(),
+    ]);
+
+    $serie = $this->relatorio->faturamentoDiario(now()->subDays(6), now());
+
+    expect($serie[now()->subDays(2)->toDateString()])->toBe('80.00')
+        ->and($serie[now()->subDays(5)->toDateString()])->toBe('0.00');
+});
+
 it('devolve zeros num periodo sem movimento', function () {
     $resumo = $this->relatorio->resumo($this->de, $this->ate);
 

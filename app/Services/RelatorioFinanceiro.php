@@ -196,7 +196,7 @@ class RelatorioFinanceiro
 
         $this->pedidosDoPeriodo($de, $ate)->chunk(200, function ($lote) use (&$serie) {
             foreach ($lote as $pedido) {
-                $chave = $pedido->data->toDateString();
+                $chave = $pedido->dataFaturamento()->toDateString();
 
                 if (! array_key_exists($chave, $serie)) {
                     continue;
@@ -299,15 +299,23 @@ class RelatorioFinanceiro
             : $truncado;
     }
 
+    /**
+     * Venda só conta depois de entregue, e na data da entrega: encomenda de
+     * novembro entregue em dezembro é faturamento de dezembro. Venda avulsa
+     * não tem data de entrega e usa a do pedido. Mesma regra de
+     * Pedido::dataFaturamento().
+     */
     private function pedidosDoPeriodo(Carbon $de, Carbon $ate)
     {
+        $competencia = DB::raw('COALESCE(data_entrega, data)');
+
         return Pedido::query()
             ->with(['itens.produto'])
-            ->whereNotIn('status', [StatusPedido::Orcamento->value, StatusPedido::Cancelado->value])
+            ->where('status', StatusPedido::Entregue->value)
             // whereDate compara só a parte da data: o cast 'date' do Laravel grava
             // '2026-09-10 00:00:00', e um whereBetween cru descartaria o último dia
-            ->whereDate('data', '>=', $de->toDateString())
-            ->whereDate('data', '<=', $ate->toDateString())
+            ->whereDate($competencia, '>=', $de->toDateString())
+            ->whereDate($competencia, '<=', $ate->toDateString())
             ->orderBy('id');
     }
 

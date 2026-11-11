@@ -60,8 +60,8 @@ enum StatusPedido: string implements HasColor, HasIcon, HasLabel
     }
 
     /**
-     * A venda conta para faturamento? Orçamento ainda não é venda,
-     * cancelado nunca foi. Os demais já comprometem produto.
+     * O pedido compromete produto (baixa estoque)? Orçamento ainda não é
+     * venda, cancelado nunca foi. Faturamento é outra regra: só entregue.
      */
     public function contabiliza(): bool
     {
