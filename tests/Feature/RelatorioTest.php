@@ -8,6 +8,7 @@ use App\Models\Insumo;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Services\FinalizarPedido;
+use App\Services\MovimentarEstoque;
 use App\Services\RelatorioFinanceiro;
 
 function produtoCom(string $nome, string $custo, string $preco): Produto
@@ -243,6 +244,40 @@ it('poe a encomenda no dia da entrega na serie diaria', function () {
 
     expect($serie[now()->subDays(2)->toDateString()])->toBe('80.00')
         ->and($serie[now()->subDays(5)->toDateString()])->toBe('0.00');
+});
+
+it('desconta do lucro o que estragou', function () {
+    $brownie = produtoCom('Brownie', '1.5000', '8.00');
+    vender($brownie, '10'); // margem de contribuição: 80 - 15 = 65
+
+    $chocolate = Insumo::create([
+        'nome' => 'Chocolate',
+        'unidade_base' => 'g',
+        'estoque_atual' => '5000',
+        'custo_medio' => '0.0400',
+        'estoque_minimo' => '0',
+    ]);
+
+    $estoque = app(MovimentarEstoque::class);
+    $estoque->perdaDeInsumo($chocolate, '500'); // 500 g x 0,04 = 20,00
+    $estoque->perdaDeProduto($brownie, '4');    // 4 un x 1,50 = 6,00
+    // contagem de inventário não é perda: a contagem inicial viraria ganho falso
+    $estoque->ajustarInsumo($chocolate, '9000');
+
+    $resumo = $this->relatorio->resumo($this->de, $this->ate);
+
+    expect($resumo['perdas'])->toBe('26.00')
+        ->and($resumo['margem_contribuicao'])->toBe('65.00')
+        ->and($resumo['lucro_liquido'])->toBe('39.00');
+});
+
+it('ignora perda de fora do periodo', function () {
+    $brownie = produtoCom('Brownie', '1.5000', '8.00');
+
+    $perda = app(MovimentarEstoque::class)->perdaDeProduto($brownie, '4');
+    $perda->forceFill(['created_at' => now()->subMonths(3)])->save();
+
+    expect($this->relatorio->resumo($this->de, $this->ate)['perdas'])->toBe('0.00');
 });
 
 it('devolve zeros num periodo sem movimento', function () {

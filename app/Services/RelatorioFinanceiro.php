@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\CategoriaDespesa;
 use App\Enums\StatusPedido;
 use App\Models\Despesa;
+use App\Models\Movimentacao;
 use App\Models\Pedido;
 use App\Models\Produto;
 use App\Support\Decimal;
@@ -24,7 +25,7 @@ class RelatorioFinanceiro
      * @return array{
      *     faturamento_bruto: string, descontos: string, taxas: string,
      *     faturamento_liquido: string, cmv: string, margem_contribuicao: string,
-     *     despesas: string, lucro_liquido: string, unidades_vendidas: string,
+     *     despesas: string, perdas: string, lucro_liquido: string, unidades_vendidas: string,
      *     pedidos: int, ticket_medio: string, margem_percentual: string
      * }
      */
@@ -57,9 +58,11 @@ class RelatorioFinanceiro
         $faturamentoLiquido = Decimal::sub($faturamentoBruto, $taxas);
         $margemContribuicao = Decimal::sub($faturamentoLiquido, $cmv);
         $despesas = $this->totalDespesas($de, $ate);
-        $lucroLiquido = Decimal::sub($margemContribuicao, $despesas);
+        $perdas = $this->totalPerdas($de, $ate);
+        $lucroLiquido = Decimal::sub(Decimal::sub($margemContribuicao, $despesas), $perdas);
 
         return [
+            'perdas' => Decimal::dinheiro($perdas),
             'faturamento_bruto' => Decimal::dinheiro($faturamentoBruto),
             'descontos' => Decimal::dinheiro($descontos),
             'taxas' => Decimal::dinheiro($taxas),
@@ -332,6 +335,31 @@ class RelatorioFinanceiro
             ->chunk(500, function ($lote) use (&$total) {
                 foreach ($lote as $despesa) {
                     $total = Decimal::soma($total, $despesa->valor);
+                }
+            });
+
+        return $total;
+    }
+
+    /**
+     * Insumo vencido e fornada queimada, pelo custo do dia da perda.
+     *
+     * A compra só chega ao resultado quando vira CMV; o que estragou nunca é
+     * vendido, então sem esta linha o lucro ficaria maior do que foi.
+     * Ajuste de inventário fica de fora: a contagem inicial viraria ganho.
+     */
+    private function totalPerdas(Carbon $de, Carbon $ate): string
+    {
+        $total = '0';
+
+        Movimentacao::query()
+            ->perdas()
+            ->whereDate('created_at', '>=', $de->toDateString())
+            ->whereDate('created_at', '<=', $ate->toDateString())
+            ->orderBy('id')
+            ->chunk(500, function ($lote) use (&$total) {
+                foreach ($lote as $perda) {
+                    $total = Decimal::soma($total, Decimal::mul($perda->quantidade, $perda->custo_unitario));
                 }
             });
 

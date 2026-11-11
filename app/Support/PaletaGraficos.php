@@ -36,6 +36,9 @@ class PaletaGraficos
 
     public const DESPESAS = '#6250d6';
 
+    // amarelo: vizinho validado do verde-água do lucro, que vem logo depois
+    public const PERDAS = '#eda100';
+
     public const LUCRO = '#1baf7a';
 
     /**

@@ -41,8 +41,9 @@ class ResumoDoMes extends StatsOverviewWidget
                 ->chart($this->serie()),
 
             Stat::make('Lucro líquido', Decimal::paraReal($mes['lucro_liquido']))
-                // já descontou taxa, CMV e despesas: é o que sobra de verdade
-                ->description('CMV '.Decimal::paraReal($mes['cmv']).' · despesas '.Decimal::paraReal($mes['despesas']))
+                // já descontou taxa, CMV, despesas e perdas: é o que sobra de verdade
+                ->description('CMV '.Decimal::paraReal($mes['cmv']).' · despesas '.Decimal::paraReal($mes['despesas'])
+                    .(Decimal::positivo($mes['perdas']) ? ' · perdas '.Decimal::paraReal($mes['perdas']) : ''))
                 ->descriptionIcon(Decimal::negativo($mes['lucro_liquido'])
                     ? 'heroicon-m-arrow-trending-down'
                     : 'heroicon-m-arrow-trending-up')

@@ -9,7 +9,7 @@ use Filament\Widgets\ChartWidget;
 
 /**
  * Cada real cobrado do cliente, repartido: produto (CMV), maquininha,
- * despesas e o que sobrou. As quatro fatias somam o faturamento bruto.
+ * despesas, perdas e o que sobrou. As fatias somam o faturamento bruto.
  */
 class DestinoDoFaturamento extends ChartWidget
 {
@@ -49,6 +49,7 @@ class DestinoDoFaturamento extends ChartWidget
             ['Produto vendido (CMV)', $resumo['cmv'], PaletaGraficos::CMV],
             ['Maquininha e delivery', $resumo['taxas'], PaletaGraficos::TAXAS],
             ['Despesas', $resumo['despesas'], PaletaGraficos::DESPESAS],
+            ['Perdas', $resumo['perdas'], PaletaGraficos::PERDAS],
             // prejuízo não vira fatia: pizza não tem pedaço negativo
             ['Lucro', $resumo['lucro_liquido'], PaletaGraficos::LUCRO],
         ];

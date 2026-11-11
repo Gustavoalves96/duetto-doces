@@ -31,6 +31,7 @@ class Demonstrativo extends Widget
                 ['(−) CMV', $resumo['cmv'], 'Custo congelado dos produtos vendidos', 'saida'],
                 ['(=) Margem de contribuição', $resumo['margem_contribuicao'], 'Sobra para pagar a operação', 'subtotal'],
                 ['(−) Despesas', $resumo['despesas'], 'Aluguel, energia, embalagem, pró-labore', 'saida'],
+                ['(−) Perdas', $resumo['perdas'], 'Insumo vencido e produto que estragou, pelo custo', 'saida'],
             ],
             'lucro' => $resumo['lucro_liquido'],
             'prejuizo' => Decimal::negativo($resumo['lucro_liquido']),
