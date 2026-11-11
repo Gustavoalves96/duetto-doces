@@ -11,6 +11,33 @@ vendas avulsas, despesas e relatórios financeiros.
 **Uso interno apenas.** Não existe área do cliente, não existe pedido online,
 não existe catálogo público. Só os dois donos acessam o painel.
 
+## Dados reais
+
+O banco tem dados reais da operação e o `.env` de desenvolvimento aponta para
+ele (Neon). Qualquer comando artisan que escreve, rodado localmente, escreve em
+produção.
+
+- Nunca: `migrate:fresh`, `migrate:refresh`, `migrate:reset`,
+  `migrate:rollback`, `db:wipe`, `db:seed`, `composer setup`, `config:cache`
+  local, `tinker` com escrita.
+- Nunca apagar nem reescrever linha existente (sem `DELETE`, `UPDATE` em massa
+  ou backfill). Corrigir é sempre lançar o inverso: estorno, ajuste, perda.
+- Migrations só acrescentam (tabela ou coluna nullable). Sem `DROP`, rename ou
+  troca de FK. Quem roda no banco real é o dono, depois de backup no Neon.
+- Testes só em SQLite em memória; `tests/TestCase.php` aborta fora disso.
+- Conferir o painel à mão: SQLite descartável via variáveis `DB_*` do processo,
+  nunca o banco do `.env`.
+
+## Decisões de negócio (novembro/2026)
+
+- Encomenda é produzida **depois** do pedido. O custo do item é provisório até
+  a entrega e fica congelado de vez ao marcar como entregue.
+- Faturamento e lucro contam só pedido **entregue**, na data de entrega
+  (venda avulsa: data do pedido).
+- Embalagem é por unidade: é insumo em `un` na ficha técnica, não despesa.
+- Gás, energia e demais indiretos são despesa do mês. Entram só no preço
+  sugerido, nunca no custo unitário gravado.
+
 ## Stack
 
 - PHP 8.2+ / Laravel 12 ou 13
