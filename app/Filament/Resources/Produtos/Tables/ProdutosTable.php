@@ -5,10 +5,9 @@ namespace App\Filament\Resources\Produtos\Tables;
 use App\Filament\Forms\Components\CampoQuantidade;
 use App\Models\Produto;
 use App\Services\MovimentarEstoque;
+use App\Services\PrecoSugerido;
 use App\Support\Decimal;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -38,7 +37,10 @@ class ProdutosTable
                     ->label('Preço')
                     ->sortable()
                     ->alignEnd()
-                    ->money('BRL', locale: 'pt_BR'),
+                    ->money('BRL', locale: 'pt_BR')
+                    ->description(fn (Produto $record) => ($sugerido = app(PrecoSugerido::class)->calcular($record->custo_unitario))
+                        ? 'sugerido '.Decimal::paraReal($sugerido)
+                        : null),
 
                 TextColumn::make('custo_unitario')
                     // só a partir do notebook; no tablet a linha não cabe
@@ -170,11 +172,8 @@ class ProdutosTable
                             ->send();
                     }),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ])
+            // sem exclusão em massa: apagar produto leva fichas e histórico; use "À venda"
+            ->toolbarActions([])
             ->emptyStateHeading('Nenhum produto cadastrado')
             ->emptyStateDescription('Cadastre o que você vende: brownie tradicional, cookie de chocolate, etc.')
             ->emptyStateIcon('heroicon-o-cake');

@@ -101,7 +101,7 @@ class DespesasTable
                 ]),
             ])
             ->emptyStateHeading('Nenhuma despesa lançada')
-            ->emptyStateDescription('Aluguel, energia, embalagem, pró-labore. Sem elas o lucro do relatório é fantasia.')
+            ->emptyStateDescription('Aluguel, energia, gás, pró-labore. Sem elas o lucro do relatório é fantasia.')
             ->emptyStateIcon('heroicon-o-banknotes');
     }
 }

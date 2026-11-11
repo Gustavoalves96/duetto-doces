@@ -40,7 +40,7 @@ class DespesaForm
 
                         TextInput::make('descricao')
                             ->label('Descrição')
-                            ->placeholder('Caixas de papelão para encomenda')
+                            ->placeholder('Conta de luz de novembro')
                             ->required()
                             ->maxLength(255)
                             ->columnSpanFull()
@@ -69,6 +69,9 @@ class DespesaForm
                     ])
                     ->footer([
                         Text::make('O pró-labore dos dois donos entra aqui como despesa recorrente. Sem isso o "lucro" é só o pagamento do trabalho de vocês disfarçado.')
+                            ->color('gray'),
+                        // lançada aqui e também comprada como insumo, a embalagem contaria duas vezes
+                        Text::make('Saquinho, etiqueta e o que mais vai em cada unidade não é despesa: cadastre como insumo, lance em Compras e inclua na ficha técnica. Assim entra no custo do produto.')
                             ->color('gray'),
                     ]),
             ]);

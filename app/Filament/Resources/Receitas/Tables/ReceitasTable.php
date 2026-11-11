@@ -7,8 +7,6 @@ use App\Models\Receita;
 use App\Services\ExecutarProducao;
 use App\Support\Decimal;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
@@ -197,11 +195,8 @@ class ReceitasTable
                     ->labeledFrom('2xl')
                     ->tooltip('Editar'),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ])
+            // sem exclusão em massa: ficha que já produziu é histórico; use "Em uso"
+            ->toolbarActions([])
             ->emptyStateHeading('Nenhuma ficha técnica')
             ->emptyStateDescription('A ficha diz quais insumos entram e quantas unidades saem. Sem ela não existe custo de produto.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list');

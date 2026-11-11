@@ -8,6 +8,10 @@ use Filament\Support\Contracts\HasLabel;
 /**
  * Insumo NÃO entra aqui — insumo entra por compra e vira CMV via produção.
  * Despesa é o custo de manter a operação de pé.
+ *
+ * Embalagem de cada unidade (saquinho, etiqueta) é insumo em "un" na ficha
+ * técnica. O caso Embalagem fica para as despesas já lançadas e para o que
+ * não é por unidade (caixa de transporte, sacola).
  */
 enum CategoriaDespesa: string implements HasColor, HasLabel
 {

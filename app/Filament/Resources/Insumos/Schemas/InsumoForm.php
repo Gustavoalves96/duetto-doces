@@ -44,7 +44,7 @@ class InsumoForm
                             ->default(UnidadeBase::Grama)
                             // trocar a unidade depois invalidaria todo o estoque e as fichas
                             ->disabledOn('edit')
-                            ->helperText('Sempre a menor unidade. Compra em kg? Cadastre em gramas.')
+                            ->helperText('Sempre a menor unidade. Compra em kg? Cadastre em gramas. Saquinho e etiqueta entram em unidade.')
                             ->validationMessages(['required' => 'Escolha a unidade de estoque.']),
 
                         CampoQuantidade::make('estoque_minimo')

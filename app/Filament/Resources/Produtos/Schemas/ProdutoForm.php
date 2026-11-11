@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Produtos\Schemas;
 
 use App\Filament\Forms\Components\CampoDinheiro;
 use App\Models\Produto;
+use App\Services\PrecoSugerido;
 use App\Support\Decimal;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
@@ -64,6 +65,11 @@ class ProdutoForm
                         Placeholder::make('margem_percentual')
                             ->label('Margem')
                             ->content(fn (?Produto $record) => Decimal::paraBr($record?->margemPercentual() ?? '0', 1).'%'),
+
+                        Placeholder::make('preco_sugerido')
+                            ->label('Preço sugerido')
+                            ->content(fn (?Produto $record) => app(PrecoSugerido::class)->paraExibir($record?->custo_unitario))
+                            ->helperText(fn () => app(PrecoSugerido::class)->explicacao()),
 
                         Placeholder::make('estoque_atual')
                             ->label('Em estoque')

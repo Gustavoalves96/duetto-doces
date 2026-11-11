@@ -51,6 +51,23 @@ it('calcula o custo do produto a partir da ficha tecnica', function () {
         ->and((string) $produto->estoque_atual)->toBe('20.000');
 });
 
+it('poe a embalagem de cada unidade no custo do produto', function () {
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+
+    $saquinho = Insumo::create([
+        'nome' => 'Saquinho', 'unidade_base' => 'un',
+        'estoque_atual' => '100', 'custo_medio' => '0.2000', 'estoque_minimo' => '0',
+    ]);
+    // um saquinho por brownie: a fornada rende 20
+    $receita->itens()->create(['insumo_id' => $saquinho->id, 'quantidade' => '20']);
+
+    app(ExecutarProducao::class)->executar($receita, '0.5');
+
+    // meia fornada: 15,00 de massa + 10 saquinhos (2,00) = 17,00 em 10 brownies
+    expect((string) $produto->refresh()->custo_unitario)->toBe('1.7000')
+        ->and((string) $saquinho->refresh()->estoque_atual)->toBe('90.000');
+});
+
 it('baixa os insumos na proporcao da receita', function () {
     ['chocolate' => $chocolate, 'manteiga' => $manteiga, 'receita' => $receita] = cenarioBrownie();
 

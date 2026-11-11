@@ -7,6 +7,7 @@ use App\Filament\Forms\Components\CampoQuantidade;
 use App\Models\Insumo;
 use App\Models\Produto;
 use App\Models\Receita;
+use App\Services\PrecoSugerido;
 use App\Support\Decimal;
 use Closure;
 use Filament\Forms\Components\Placeholder;
@@ -67,7 +68,7 @@ class ReceitaForm
                     ]),
 
                 Section::make('Ingredientes')
-                    ->description('Quantidades de UMA fornada, na unidade de estoque do insumo. Meia fornada ou três fornadas saem do multiplicador na hora de produzir.')
+                    ->description('Quantidades de UMA fornada, na unidade de estoque do insumo. Meia fornada ou três fornadas saem do multiplicador na hora de produzir. Inclua a embalagem de cada unidade: se a fornada rende 15, são 15 saquinhos.')
                     ->schema([
                         Repeater::make('itens')
                             ->relationship()
@@ -182,7 +183,7 @@ class ReceitaForm
 
                 Section::make('Custo estimado')
                     ->description('Projeção com os custos médios de hoje. O custo real é o que a produção gravar.')
-                    ->columns(['default' => 1, 'sm' => 3])
+                    ->columns(['default' => 1, 'sm' => 2, 'xl' => 4])
                     ->visibleOn('edit')
                     ->schema([
                         Placeholder::make('custo_fornada')
@@ -208,6 +209,11 @@ class ReceitaForm
                                     Decimal::mul(Decimal::div($margem, $preco), '100'), 1
                                 ).'%';
                             }),
+
+                        Placeholder::make('preco_sugerido')
+                            ->label('Preço sugerido')
+                            ->content(fn (?Receita $record) => app(PrecoSugerido::class)->paraExibir($record?->custoEstimadoUnitario()))
+                            ->helperText(fn () => app(PrecoSugerido::class)->explicacao()),
                     ])
                     ->footer([
                         Text::make('Para transformar isso em produto acabado, use a ação "Produzir" na listagem de fichas.')

@@ -3,17 +3,13 @@
 namespace App\Filament\Resources\Insumos\Pages;
 
 use App\Filament\Resources\Insumos\InsumoResource;
-use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
+/**
+ * Sem botão de excluir: apagar um insumo levaria junto o histórico de
+ * movimentações. Para tirar da lista, desligue "Insumo em uso".
+ */
 class EditInsumo extends EditRecord
 {
     protected static string $resource = InsumoResource::class;
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            DeleteAction::make(),
-        ];
-    }
 }

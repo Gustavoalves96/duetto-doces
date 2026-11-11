@@ -7,8 +7,6 @@ use App\Models\Insumo;
 use App\Services\MovimentarEstoque;
 use App\Support\Decimal;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -178,13 +176,10 @@ class InsumosTable
                             ->send();
                     }),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ])
+            // sem exclusão em massa: apagar insumo leva o histórico junto; use "Em uso"
+            ->toolbarActions([])
             ->emptyStateHeading('Nenhum insumo cadastrado')
-            ->emptyStateDescription('Comece pelos ingredientes que você compra: farinha, chocolate, manteiga, ovos.')
+            ->emptyStateDescription('Comece pelo que você compra: farinha, chocolate, manteiga, ovos e a embalagem de cada unidade.')
             ->emptyStateIcon('heroicon-o-cube');
     }
 }
