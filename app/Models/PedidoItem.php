@@ -28,6 +28,17 @@ class PedidoItem extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // o custo congelado é do produto que estava no item: trocou o produto,
+        // o custo antigo não vale mais e o serviço de venda congela de novo
+        static::updating(function (PedidoItem $item) {
+            if ($item->isDirty('produto_id')) {
+                $item->custo_unitario = '0';
+            }
+        });
+    }
+
     public function pedido(): BelongsTo
     {
         return $this->belongsTo(Pedido::class);

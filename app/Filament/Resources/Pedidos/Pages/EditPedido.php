@@ -11,6 +11,9 @@ class EditPedido extends EditRecord
 {
     protected static string $resource = PedidoResource::class;
 
+    // estorno, itens novos e nova baixa valem juntos ou não valem
+    protected ?bool $hasDatabaseTransactions = true;
+
     protected function getHeaderActions(): array
     {
         return [
@@ -22,19 +25,18 @@ class EditPedido extends EditRecord
     }
 
     /**
-     * Um pedido já efetivado tem estoque baixado e custo congelado. Se os itens
-     * mudaram, estornamos e efetivamos de novo para o estoque bater — o custo
-     * é recongelado com o valor de agora, que é o certo, já que a venda mudou.
+     * Roda antes de o Repeater gravar: os itens no banco ainda são os que
+     * foram baixados, e é exatamente isso que precisa voltar para a prateleira.
+     * No afterSave já seria tarde — o estorno devolveria as quantidades novas.
      */
+    protected function beforeSave(): void
+    {
+        app(FinalizarPedido::class)->estornar($this->getRecord());
+    }
+
+    /** Baixa de novo, agora com os itens como ficaram. */
     protected function afterSave(): void
     {
-        $servico = app(FinalizarPedido::class);
-        $pedido = $this->getRecord();
-
-        if ($pedido->jaBaixouEstoque()) {
-            $servico->estornar($pedido);
-        }
-
-        $servico->sincronizar($pedido);
+        app(FinalizarPedido::class)->sincronizar($this->getRecord());
     }
 }

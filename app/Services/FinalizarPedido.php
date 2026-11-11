@@ -36,10 +36,14 @@ class FinalizarPedido
             foreach ($pedido->itens as $item) {
                 $produto = Produto::query()->lockForUpdate()->findOrFail($item->produto_id);
 
-                // CONGELA: a partir daqui esse número não muda mais
-                $item->forceFill([
-                    'custo_unitario' => Decimal::custo($produto->custo_unitario),
-                ])->save();
+                // CONGELA. Pedido entregue já tem custo definitivo: reeditá-lo
+                // não pode reescrever o CMV de um mês fechado, então ali só
+                // congela o item que ainda não tem custo (novo ou de outro produto)
+                if ($pedido->status !== StatusPedido::Entregue || Decimal::ehZero($item->custo_unitario)) {
+                    $item->forceFill([
+                        'custo_unitario' => Decimal::custo($produto->custo_unitario),
+                    ])->save();
+                }
 
                 // estoque de produto pode ficar negativo pelo mesmo motivo do insumo:
                 // às vezes a fornada sai e só é lançada depois da venda
@@ -52,7 +56,7 @@ class FinalizarPedido
                 $produto->movimentacoes()->create([
                     'tipo' => TipoMovimentacao::Saida,
                     'quantidade' => Decimal::quantidade($item->quantidade),
-                    'custo_unitario' => Decimal::custo($produto->custo_unitario),
+                    'custo_unitario' => Decimal::custo($item->custo_unitario),
                     'observacao' => 'Venda '.$pedido->identificacao,
                     'origem_id' => $pedido->id,
                     'origem_type' => Pedido::class,

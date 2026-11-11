@@ -271,3 +271,94 @@ it('trata venda avulsa como paga no balcão', function () {
     Livewire::test(ListPedidos::class)
         ->assertActionHidden(TestAction::make('alternarPagamento')->table($avulsa));
 });
+
+/*
+ * Editar um pedido que já baixou estoque: o que volta para a prateleira é o
+ * que estava no pedido ANTES do save, e o que sai é o que ficou depois.
+ */
+
+function outroProduto(string $nome, string $custo = '4.0000'): Produto
+{
+    $produto = Produto::create(['nome' => $nome, 'preco_venda' => '9.00']);
+    $produto->forceFill(['custo_unitario' => $custo, 'estoque_atual' => '50'])->save();
+
+    return $produto->refresh();
+}
+
+it('devolve a diferença ao diminuir a quantidade de um pedido já baixado', function () {
+    $produto = produtoParaEncomenda();
+    $pedido = encomendaAEntregar($produto); // 4 unidades: estoque 50 -> 46
+
+    $tela = Livewire::test(EditPedido::class, ['record' => $pedido->getRouteKey()]);
+    $chave = array_key_first($tela->instance()->form->getRawState()['itens']);
+
+    $tela->set("data.itens.{$chave}.quantidade", '2')
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect((string) $pedido->itens()->sole()->quantidade)->toBe('2.000')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('48.000');
+});
+
+it('devolve o item removido e baixa o item novo', function () {
+    $brownie = produtoParaEncomenda();
+    $cookie = outroProduto('Cookie');
+    $palha = outroProduto('Palha italiana');
+
+    // o cookie entra com o pedido ainda sem baixa, para as duas baixas saírem juntas
+    $servico = app(FinalizarPedido::class);
+    $pedido = $servico->estornar(encomendaAEntregar($brownie));
+    $pedido->itens()->create(['produto_id' => $cookie->id, 'quantidade' => '3', 'preco_unitario' => '9.00']);
+    $servico->sincronizar($pedido);
+
+    expect((string) $brownie->refresh()->estoque_atual)->toBe('46.000')
+        ->and((string) $cookie->refresh()->estoque_atual)->toBe('47.000');
+
+    $tela = Livewire::test(EditPedido::class, ['record' => $pedido->getRouteKey()]);
+    $itens = $tela->instance()->form->getRawState()['itens'];
+
+    // sai o cookie, entra a palha
+    $itens = array_filter($itens, fn (array $item) => (int) $item['produto_id'] !== $cookie->id);
+    $itens['novo'] = ['produto_id' => $palha->id, 'quantidade' => '5', 'preco_unitario' => '9,00'];
+
+    $tela->set('data.itens', $itens)
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect((string) $brownie->refresh()->estoque_atual)->toBe('46.000')
+        ->and((string) $cookie->refresh()->estoque_atual)->toBe('50.000')
+        ->and((string) $palha->refresh()->estoque_atual)->toBe('45.000');
+});
+
+it('não recongela o custo ao editar só a observação de um pedido entregue', function () {
+    $produto = produtoParaEncomenda();
+    $pedido = encomendaAEntregar($produto, ['status' => StatusPedido::Entregue]);
+
+    // o chocolate subiu depois da entrega
+    $produto->forceFill(['custo_unitario' => '3.1000'])->save();
+
+    Livewire::test(EditPedido::class, ['record' => $pedido->getRouteKey()])
+        ->fillForm(['observacoes' => 'Entregue na portaria'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect((string) $pedido->itens()->sole()->custo_unitario)->toBe('2.5000')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('46.000');
+});
+
+it('congela o custo de agora no item que troca de produto', function () {
+    $brownie = produtoParaEncomenda();
+    $cookie = outroProduto('Cookie', '4.0000');
+    $pedido = encomendaAEntregar($brownie, ['status' => StatusPedido::Entregue]);
+
+    $tela = Livewire::test(EditPedido::class, ['record' => $pedido->getRouteKey()]);
+    $chave = array_key_first($tela->instance()->form->getRawState()['itens']);
+
+    $tela->set("data.itens.{$chave}.produto_id", $cookie->id)
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect((string) $pedido->itens()->sole()->custo_unitario)->toBe('4.0000')
+        ->and((string) $brownie->refresh()->estoque_atual)->toBe('50.000')
+        ->and((string) $cookie->refresh()->estoque_atual)->toBe('46.000');
+});
