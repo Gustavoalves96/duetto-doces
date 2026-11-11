@@ -9,6 +9,7 @@ use App\Filament\Resources\Insumos\Pages as Insumos;
 use App\Filament\Resources\Movimentacoes\MovimentacaoResource;
 use App\Filament\Resources\Movimentacoes\Pages as Movimentacoes;
 use App\Filament\Resources\Pedidos\Pages as Pedidos;
+use App\Filament\Resources\Producoes\Pages as Producoes;
 use App\Filament\Resources\Produtos\Pages as Produtos;
 use App\Filament\Resources\Receitas\Pages as Receitas;
 use App\Filament\Widgets\EncomendasDaSemana;
@@ -29,6 +30,7 @@ it('abre a listagem de cada recurso', function (string $pagina) {
     'insumos' => Insumos\ListInsumos::class,
     'produtos' => Produtos\ListProdutos::class,
     'movimentações' => Movimentacoes\ListMovimentacoes::class,
+    'produções' => Producoes\ListProducoes::class,
     'compras' => Compras\ListCompras::class,
     'receitas' => Receitas\ListReceitas::class,
     'pedidos' => Pedidos\ListPedidos::class,

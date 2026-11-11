@@ -25,7 +25,14 @@ class Producao extends Model
             'multiplicador' => 'decimal:3',
             'quantidade_produzida' => 'decimal:3',
             'custo_total' => 'decimal:2',
+            'estornada_em' => 'datetime',
         ];
+    }
+
+    /** A produção foi desfeita (insumos devolvidos, produto retirado)? */
+    public function foiEstornada(): bool
+    {
+        return $this->estornada_em !== null;
     }
 
     public function receita(): BelongsTo

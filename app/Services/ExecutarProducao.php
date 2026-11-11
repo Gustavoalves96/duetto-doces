@@ -228,6 +228,93 @@ class ExecutarProducao
     }
 
     /**
+     * Desfaz uma produção lançada errada: devolve os insumos e retira as
+     * unidades produzidas, a partir das movimentações que ela mesma gravou.
+     * Nada é apagado — cada linha ganha o lançamento inverso. Idempotente.
+     *
+     * Fornada queimada não passa por aqui: aquilo é perda, e perda tem custo.
+     */
+    public function estornar(Producao $producao): Producao
+    {
+        return DB::transaction(function () use ($producao) {
+            $producao = Producao::query()->lockForUpdate()->findOrFail($producao->id);
+
+            if ($producao->foiEstornada()) {
+                return $producao;
+            }
+
+            $originais = $producao->movimentacoes()
+                ->whereIn('tipo', [TipoMovimentacao::Saida, TipoMovimentacao::Entrada])
+                ->orderBy('id')
+                ->get();
+
+            foreach ($originais as $mov) {
+                if ($mov->insumo_id) {
+                    $insumo = Insumo::query()->lockForUpdate()->findOrFail($mov->insumo_id);
+
+                    // shortcut: o custo médio do insumo não é refeito; se entrou compra
+                    // com outro preço entre a fornada e o estorno, repesar aqui
+                    $insumo->forceFill([
+                        'estoque_atual' => Decimal::quantidade(Decimal::soma($insumo->estoque_atual, $mov->quantidade)),
+                    ])->save();
+
+                    $devolvido = $mov->quantidade;
+                    $dono = $insumo;
+                } else {
+                    $produto = Produto::query()->lockForUpdate()->findOrFail($mov->produto_id);
+
+                    $this->retirarLoteDoProduto(
+                        $produto,
+                        (string) $mov->quantidade,
+                        Decimal::mul($mov->quantidade, $mov->custo_unitario),
+                    );
+
+                    $devolvido = Decimal::mul($mov->quantidade, '-1');
+                    $dono = $produto;
+                }
+
+                $dono->movimentacoes()->create([
+                    'tipo' => TipoMovimentacao::Ajuste,
+                    'quantidade' => Decimal::quantidade($devolvido),
+                    'custo_unitario' => Decimal::custo($mov->custo_unitario),
+                    'observacao' => 'Estorno da produção de '.$producao->data->format('d/m/Y'),
+                    'origem_id' => $producao->id,
+                    'origem_type' => Producao::class,
+                ]);
+            }
+
+            $producao->forceFill(['estornada_em' => now()])->save();
+
+            return $producao;
+        });
+    }
+
+    /**
+     * O inverso de misturarLoteNoProduto: tira o lote da média.
+     *
+     *   custo_unitario = (estoque * custo_atual - custo_do_lote)
+     *                    / (estoque - quantidade_do_lote)
+     *
+     * Se o lote já foi vendido e não sobra base positiva, o custo fica como
+     * está: é o último número confiável.
+     */
+    private function retirarLoteDoProduto(Produto $produto, string $quantidadeLote, string $custoLote): void
+    {
+        $base = Decimal::positivo($produto->estoque_atual) ? (string) $produto->estoque_atual : '0';
+        $novaBase = Decimal::sub($base, $quantidadeLote);
+        $valor = Decimal::sub(Decimal::mul($base, $produto->custo_unitario), $custoLote);
+
+        $novoCusto = Decimal::positivo($novaBase) && Decimal::positivo($valor)
+            ? Decimal::div($valor, $novaBase)
+            : (string) $produto->custo_unitario;
+
+        $produto->forceFill([
+            'estoque_atual' => Decimal::quantidade(Decimal::sub($produto->estoque_atual, $quantidadeLote)),
+            'custo_unitario' => Decimal::custo($novoCusto),
+        ])->save();
+    }
+
+    /**
      * Insumos que ficariam negativos com esse multiplicador e esses recheios.
      * Só para avisar na tela — a produção acontece de qualquer jeito.
      *

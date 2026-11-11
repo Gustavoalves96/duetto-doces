@@ -1,9 +1,15 @@
 <?php
 
+use App\Filament\Resources\Producoes\Pages\ListProducoes;
 use App\Models\Insumo;
 use App\Models\Produto;
 use App\Models\Receita;
+use App\Models\User;
 use App\Services\ExecutarProducao;
+use Filament\Actions\Testing\TestAction;
+use Livewire\Livewire;
+
+use function Pest\Laravel\actingAs;
 
 /**
  * Cenário base: brownie que rende 20 unidades por fornada.
@@ -267,4 +273,93 @@ it('ignora recheio com zero e avisa falta de recheio', function () {
     $servico->executar($receita, '1', recheios: [$recheio->id => '0']);
 
     expect((string) $produto->refresh()->estoque_atual)->toBe('20.000');
+});
+
+/*
+ * Desfazer uma produção lançada errada: tudo volta, nada é apagado.
+ */
+
+it('desfaz a producao devolvendo os insumos e retirando o produto', function () {
+    ['chocolate' => $chocolate, 'manteiga' => $manteiga, 'produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    $servico = app(ExecutarProducao::class);
+
+    $producao = $servico->executar($receita, '3');
+    $producao = $servico->estornar($producao);
+
+    expect($producao->foiEstornada())->toBeTrue()
+        ->and((string) $chocolate->refresh()->estoque_atual)->toBe('5000.000')
+        ->and((string) $manteiga->refresh()->estoque_atual)->toBe('2000.000')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('0.000')
+        // as 3 linhas originais continuam lá, com 3 lançamentos inversos
+        ->and($producao->movimentacoes()->count())->toBe(6);
+});
+
+it('volta o custo do produto ao que era antes do lote desfeito', function () {
+    ['chocolate' => $chocolate, 'produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    $servico = app(ExecutarProducao::class);
+
+    $servico->executar($receita, '1'); // 20 un a 1,50
+
+    // o chocolate encareceu: 500 g x 0,06 + 10,00 de manteiga = 40,00 -> 2,00 por unidade
+    $chocolate->refresh()->forceFill(['custo_medio' => '0.0600'])->save();
+    $segunda = $servico->executar($receita, '1');
+
+    expect((string) $produto->refresh()->custo_unitario)->toBe('1.7500');
+
+    $servico->estornar($segunda);
+
+    expect((string) $produto->refresh()->custo_unitario)->toBe('1.5000')
+        ->and((string) $produto->estoque_atual)->toBe('20.000');
+});
+
+it('nao desfaz a mesma producao duas vezes', function () {
+    ['chocolate' => $chocolate, 'produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    $servico = app(ExecutarProducao::class);
+
+    $producao = $servico->executar($receita, '1');
+    $servico->estornar($producao);
+    $servico->estornar($producao);
+
+    expect((string) $chocolate->refresh()->estoque_atual)->toBe('5000.000')
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('0.000')
+        ->and($producao->movimentacoes()->count())->toBe(6);
+});
+
+it('desfaz fornada com recheio nos dois produtos', function () {
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    ['nutella' => $nutella, 'produtoNutella' => $produtoNutella, 'recheio' => $recheio] = comNutella($receita);
+    $servico = app(ExecutarProducao::class);
+
+    $servico->estornar($servico->executar($receita, '1', recheios: [$recheio->id => '7']));
+
+    expect((string) $produto->refresh()->estoque_atual)->toBe('0.000')
+        ->and((string) $produtoNutella->refresh()->estoque_atual)->toBe('0.000')
+        ->and((string) $nutella->refresh()->estoque_atual)->toBe('1000.000');
+});
+
+it('mantem o custo do produto quando o lote desfeito ja foi vendido', function () {
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    $servico = app(ExecutarProducao::class);
+
+    $producao = $servico->executar($receita, '1'); // 20 un a 1,50
+    // 15 já saíram em vendas
+    $produto->refresh()->forceFill(['estoque_atual' => '5'])->save();
+
+    $servico->estornar($producao);
+
+    expect((string) $produto->refresh()->estoque_atual)->toBe('-15.000')
+        ->and((string) $produto->custo_unitario)->toBe('1.5000');
+});
+
+it('desfaz a producao pela listagem e some com o botao depois', function () {
+    actingAs(User::factory()->create());
+    ['produto' => $produto, 'receita' => $receita] = cenarioBrownie();
+    $producao = app(ExecutarProducao::class)->executar($receita, '1');
+
+    Livewire::test(ListProducoes::class)
+        ->callAction(TestAction::make('desfazer')->table($producao))
+        ->assertActionHidden(TestAction::make('desfazer')->table($producao));
+
+    expect($producao->refresh()->foiEstornada())->toBeTrue()
+        ->and((string) $produto->refresh()->estoque_atual)->toBe('0.000');
 });
