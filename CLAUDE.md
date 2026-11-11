@@ -123,16 +123,22 @@ Status do pedido: `orcamento` → `confirmado` → `em_producao` → `pronto` �
 Ao registrar uma compra, para cada item:
 
 ```php
-$valorEstoque = $insumo->estoque_atual * $insumo->custo_medio;
-$novaQtd      = $insumo->estoque_atual + $item->quantidade;
-$insumo->custo_medio = $novaQtd > 0
-    ? ($valorEstoque + $item->valor_total) / $novaQtd
-    : 0;
-$insumo->estoque_atual = $novaQtd;
+$base         = max($insumo->estoque_atual, 0);   // só a parte positiva pesa
+$valorEstoque = $base * $insumo->custo_medio;
+$novaBase     = $base + $item->quantidade;
+$valor        = $valorEstoque + $item->valor_total;
+if ($novaBase > 0 && $valor > 0) {
+    $insumo->custo_medio = $valor / $novaBase;
+}                                                  // senão, mantém o anterior
+$insumo->estoque_atual += $item->quantidade;
 ```
 
 Nunca use o último preço pago. Chocolate e manteiga oscilam muito e o último
 preço distorce a margem.
+
+Estoque negativo não entra na média: aquilo já foi produzido pelo custo antigo.
+E o custo médio nunca volta a zero por falta de estoque — fica o último
+conhecido, senão a fornada seguinte sai com custo zero.
 
 ### Produção
 

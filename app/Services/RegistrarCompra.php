@@ -108,23 +108,32 @@ class RegistrarCompra
     /**
      * O cálculo do CLAUDE.md, em decimal exato:
      *
-     *   valorEstoque = estoque_atual * custo_medio
-     *   novaQtd      = estoque_atual + quantidade
-     *   custo_medio  = novaQtd > 0 ? (valorEstoque + valor_total) / novaQtd : 0
+     *   base         = estoque_atual > 0 ? estoque_atual : 0
+     *   valorEstoque = base * custo_medio
+     *   novaBase     = base + quantidade
+     *   custo_medio  = novaBase > 0 e valor > 0
+     *                    ? (valorEstoque + valor_total) / novaBase
+     *                    : custo_medio anterior
+     *
+     * Só a parte positiva do estoque entra na média. O que está negativo já
+     * foi para o forno pelo custo antigo; pesar isso de novo jogava o custo
+     * médio para zero na compra seguinte. Sem base para calcular, fica o
+     * último custo conhecido — zero faria a próxima fornada sair de graça.
      */
     private function somarAoEstoque(Insumo $insumo, mixed $quantidade, mixed $valorTotal): void
     {
-        $valorEstoque = Decimal::mul($insumo->estoque_atual, $insumo->custo_medio);
-        $novaQtd = Decimal::soma($insumo->estoque_atual, $quantidade);
+        $base = Decimal::positivo($insumo->estoque_atual) ? (string) $insumo->estoque_atual : '0';
+        $novaBase = Decimal::soma($base, $quantidade);
+        $valor = Decimal::soma(Decimal::mul($base, $insumo->custo_medio), $valorTotal);
 
-        $novoCusto = Decimal::positivo($novaQtd)
-            ? Decimal::div(Decimal::soma($valorEstoque, $valorTotal), $novaQtd)
-            : '0';
+        $novoCusto = Decimal::positivo($novaBase) && Decimal::positivo($valor)
+            ? Decimal::div($valor, $novaBase)
+            : (string) $insumo->custo_medio;
 
         $insumo->forceFill([
-            'estoque_atual' => Decimal::quantidade($novaQtd),
-            // estoque negativo não pode arrastar o custo médio para baixo de zero
-            'custo_medio' => Decimal::negativo($novoCusto) ? '0' : Decimal::custo($novoCusto),
+            // o saldo segue o valor verdadeiro, inclusive se estava negativo
+            'estoque_atual' => Decimal::quantidade(Decimal::soma($insumo->estoque_atual, $quantidade)),
+            'custo_medio' => Decimal::custo($novoCusto),
         ])->save();
     }
 }

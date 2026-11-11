@@ -130,7 +130,7 @@ it('desfaz a compra no estorno', function () {
         ->and((string) $chocolate->custo_medio)->toBe('0.0348');
 });
 
-it('zera o custo medio quando o estoque fica zerado', function () {
+it('mantem o ultimo custo conhecido quando o estoque fica zerado', function () {
     $chocolate = insumo();
     $compra = compraDe($chocolate, '1000', '34.80');
     $servico = app(RegistrarCompra::class);
@@ -140,8 +140,52 @@ it('zera o custo medio quando o estoque fica zerado', function () {
 
     $chocolate->refresh();
 
+    // custo zero faria a próxima fornada sair de graça
     expect((string) $chocolate->estoque_atual)->toBe('0.000')
-        ->and((string) $chocolate->custo_medio)->toBe('0.0000');
+        ->and((string) $chocolate->custo_medio)->toBe('0.0348');
+});
+
+it('usa o custo da nota quando a compra cobre estoque negativo', function () {
+    // usaram 900 g antes de lançar a compra
+    $chocolate = insumo(['estoque_atual' => '-900', 'custo_medio' => '0.04']);
+
+    app(RegistrarCompra::class)->aplicar(compraDe($chocolate, '1000', '30.00'));
+
+    $chocolate->refresh();
+
+    // os 100 g que sobraram custaram 0,03 cada; o negativo não entra na média
+    expect((string) $chocolate->estoque_atual)->toBe('100.000')
+        ->and((string) $chocolate->custo_medio)->toBe('0.0300');
+});
+
+it('nao zera o custo quando a compra nao cobre todo o negativo', function () {
+    $chocolate = insumo(['estoque_atual' => '-2000', 'custo_medio' => '0.04']);
+
+    app(RegistrarCompra::class)->aplicar(compraDe($chocolate, '1000', '30.00'));
+
+    $chocolate->refresh();
+
+    expect((string) $chocolate->estoque_atual)->toBe('-1000.000')
+        ->and((string) $chocolate->custo_medio)->toBe('0.0300');
+});
+
+it('mantem o custo ao estornar uma compra que ja foi consumida', function () {
+    $chocolate = insumo();
+    $servico = app(RegistrarCompra::class);
+
+    $cara = compraDe($chocolate, '1000', '50.00');
+    $servico->aplicar($cara);
+    $servico->aplicar(compraDe($chocolate, '1000', '30.00')); // 2000 g a 0,04
+
+    // 1500 g foram para o forno
+    $chocolate->refresh()->forceFill(['estoque_atual' => '500'])->save();
+
+    $servico->estornar($cara);
+
+    $chocolate->refresh();
+
+    expect((string) $chocolate->estoque_atual)->toBe('-500.000')
+        ->and((string) $chocolate->custo_medio)->toBe('0.0400');
 });
 
 it('nao acumula erro de centavo em muitas compras seguidas', function () {
