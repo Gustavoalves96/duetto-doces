@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\DB;
  * O congelamento é a parte que não pode falhar. Se o relatório de margem
  * usasse produtos.custo_unitario na hora de ler, o resultado de março mudaria
  * sozinho toda vez que o preço do chocolate subisse em setembro.
+ *
+ * Venda avulsa nasce entregue e congela na hora. Encomenda reserva o produto
+ * ao ser criada, com custo provisório, e congela de vez na entrega.
  */
 class FinalizarPedido
 {
@@ -112,20 +115,45 @@ class FinalizarPedido
 
     /**
      * Troca o status e dispara o efeito colateral certo:
-     * sair de orçamento efetiva a venda, cancelar devolve o produto.
+     * sair de orçamento efetiva a venda, cancelar devolve o produto,
+     * entregar congela o custo de vez.
      */
     public function mudarStatus(Pedido $pedido, StatusPedido $novo): Pedido
     {
         return DB::transaction(function () use ($pedido, $novo) {
             $pedido->forceFill(['status' => $novo])->save();
 
-            if ($novo->contabiliza()) {
-                return $this->efetivar($pedido)->refresh();
+            if (! $novo->contabiliza()) {
+                // voltou para orçamento ou foi cancelado: produto volta para a prateleira
+                return $this->estornar($pedido)->refresh();
             }
 
-            // voltou para orçamento ou foi cancelado: produto volta para a prateleira
-            return $this->estornar($pedido)->refresh();
+            $pedido = $this->efetivar($pedido);
+
+            if ($novo === StatusPedido::Entregue) {
+                $this->congelarCustos($pedido);
+            }
+
+            return $pedido->refresh();
         });
+    }
+
+    /**
+     * A encomenda é produzida depois do pedido, então o custo gravado na
+     * criação é provisório. O que vale é o do produto na hora da entrega,
+     * já com a fornada feita para ela.
+     */
+    private function congelarCustos(Pedido $pedido): void
+    {
+        foreach ($pedido->itens()->get() as $item) {
+            // shortcut: a movimentação de saída fica com o custo provisório da
+            // criação; se alguém somar CMV por ela, regravar aqui também
+            $item->forceFill([
+                'custo_unitario' => Decimal::custo(
+                    Produto::query()->whereKey($item->produto_id)->value('custo_unitario')
+                ),
+            ])->save();
+        }
     }
 
     /**

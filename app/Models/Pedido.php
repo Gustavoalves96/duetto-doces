@@ -144,6 +144,14 @@ class Pedido extends Model
         return $this->tipo === TipoPedido::Avulsa || $this->pago;
     }
 
+    /** Algum item saiu sem custo (produto vendido antes de a produção ser lançada)? */
+    public function temItemSemCusto(): bool
+    {
+        return $this->itens->contains(
+            fn (PedidoItem $item) => bccomp((string) $item->custo_unitario, '0', 4) === 0
+        );
+    }
+
     /** O estoque de produto já foi baixado por este pedido? */
     public function jaBaixouEstoque(): bool
     {

@@ -36,6 +36,18 @@ class AcoesDeEncomenda
             ->action(function (Pedido $record, FinalizarPedido $servico) {
                 $pedido = $servico->mudarStatus($record, StatusPedido::Entregue);
 
+                // não bloqueia: a fornada pode ter saído sem ser lançada
+                if ($pedido->temItemSemCusto()) {
+                    Notification::make()
+                        ->title($pedido->identificacao.' entregue sem custo')
+                        ->body('Algum produto ainda não tem custo. Lance a produção e depois use "Ainda não foi entregue" e "Entregar" para congelar o custo certo.')
+                        ->warning()
+                        ->persistent()
+                        ->send();
+
+                    return;
+                }
+
                 Notification::make()
                     ->title($pedido->identificacao.' entregue')
                     ->success()
@@ -54,7 +66,7 @@ class AcoesDeEncomenda
                 && $record->status === StatusPedido::Entregue)
             ->requiresConfirmation()
             ->modalHeading('Voltar para "a entregar"')
-            ->modalDescription('A encomenda volta para a lista de entregas pendentes. Estoque e custo não mudam.')
+            ->modalDescription('A encomenda volta para a lista de entregas pendentes. O estoque não muda; o custo é congelado de novo na próxima entrega.')
             ->modalSubmitActionLabel('Voltar para a entregar')
             ->action(function (Pedido $record, FinalizarPedido $servico) {
                 $pedido = $servico->mudarStatus($record, StatusPedido::Confirmado);

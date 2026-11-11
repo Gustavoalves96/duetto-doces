@@ -362,3 +362,55 @@ it('congela o custo de agora no item que troca de produto', function () {
         ->and((string) $brownie->refresh()->estoque_atual)->toBe('50.000')
         ->and((string) $cookie->refresh()->estoque_atual)->toBe('46.000');
 });
+
+/*
+ * A encomenda é produzida depois do pedido: o custo que vale é o da entrega.
+ * Até lá o custo do item é provisório.
+ */
+
+it('congela na entrega o custo da fornada feita para a encomenda', function () {
+    $produto = produtoParaEncomenda(); // custo 2,50 quando o pedido entrou
+    $pedido = encomendaAEntregar($produto);
+
+    // a fornada da encomenda saiu mais cara
+    $produto->forceFill(['custo_unitario' => '3.2000'])->save();
+
+    app(FinalizarPedido::class)->mudarStatus($pedido, StatusPedido::Entregue);
+
+    expect((string) $pedido->itens()->sole()->custo_unitario)->toBe('3.2000');
+});
+
+it('não mexe no custo de uma encomenda entregue quando o produto encarece depois', function () {
+    $produto = produtoParaEncomenda();
+    $pedido = encomendaAEntregar($produto);
+    app(FinalizarPedido::class)->mudarStatus($pedido, StatusPedido::Entregue);
+
+    $produto->forceFill(['custo_unitario' => '9.0000'])->save();
+
+    // marcar pagamento não passa pelo congelamento
+    Livewire::test(ListPedidos::class)
+        ->callAction(TestAction::make('alternarPagamento')->table($pedido));
+
+    expect((string) $pedido->itens()->sole()->custo_unitario)->toBe('2.5000');
+});
+
+it('avisa ao entregar produto sem custo e recongela ao entregar de novo', function () {
+    $produto = produtoParaEncomenda();
+    $produto->forceFill(['custo_unitario' => '0'])->save();
+    $pedido = encomendaAEntregar($produto);
+
+    Livewire::test(ListPedidos::class)
+        ->callAction(TestAction::make('entregar')->table($pedido))
+        ->assertNotified($pedido->identificacao.' entregue sem custo');
+
+    expect((string) $pedido->itens()->sole()->custo_unitario)->toBe('0.0000');
+
+    // a produção foi lançada depois da entrega
+    $produto->forceFill(['custo_unitario' => '2.8000'])->save();
+
+    Livewire::test(ListPedidos::class)
+        ->callAction(TestAction::make('desfazerEntrega')->table($pedido))
+        ->callAction(TestAction::make('entregar')->table($pedido));
+
+    expect((string) $pedido->itens()->sole()->custo_unitario)->toBe('2.8000');
+});

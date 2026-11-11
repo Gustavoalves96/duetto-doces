@@ -99,7 +99,7 @@ class PedidoForm
                     ]),
 
                 Section::make('Itens')
-                    ->description('O custo de cada item é congelado quando o pedido é salvo. Depois disso ele não muda mais, nem se o chocolate subir.')
+                    ->description('O custo de cada item é congelado na entrega (na venda avulsa, ao salvar). Depois disso ele não muda mais, nem se o chocolate subir.')
                     // linha inteira: em meia largura o campo de quantidade sumia
                     // atrás do sufixo "un" em telas de notebook
                     ->columnSpanFull()
@@ -251,9 +251,10 @@ class PedidoForm
                             ))),
 
                         Text::make(fn (?Pedido $record) => $record && $record->jaBaixouEstoque()
-                            ? 'Custo congelado: '.Decimal::paraReal($record->cmv())
+                            ? ($record->status === StatusPedido::Entregue ? 'Custo congelado: ' : 'Custo provisório até a entrega: ')
+                                .Decimal::paraReal($record->cmv())
                                 .' · margem de contribuição: '.Decimal::paraReal($record->margemContribuicao())
-                            : 'O custo é congelado quando o pedido é salvo.')
+                            : 'O custo é congelado na entrega.')
                             ->color('gray')
                             ->columnSpanFull(),
                     ]),
